@@ -1,0 +1,33 @@
+@use "sass:map";
+@use "sass:math";
+@use "sass:meta";
+@use "variables";
+@use "functions";
+
+@mixin font-size($px) {
+  font-size: functions.rem($px);
+}
+
+@mixin from($breakpoint) {
+  @if not map.has-key(variables.$breakpoints, $breakpoint) {
+    @error "Unknown breakpoint '#{$breakpoint}'. Check $breakpoints.";
+  }
+
+  @media (min-width: functions.rem(map.get(variables.$breakpoints, $breakpoint))) {
+    @content;
+  }
+}
+
+@mixin type($name) {
+  @if not map.has-key(variables.$type-styles, $name) {
+    @error "Unknown typography token '#{$name}'. Check $type-styles.";
+  }
+
+  @each $property, $value in map.get(variables.$type-styles, $name) {
+    @if ($property == font-size or $property == line-height or $property == letter-spacing) and meta.type-of($value) == number and math.unit($value) == "px" {
+      #{$property}: functions.rem($value);
+    } @else {
+      #{$property}: $value;
+    }
+  }
+}

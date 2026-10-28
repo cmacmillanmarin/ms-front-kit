@@ -1,0 +1,24 @@
+{
+  "name": "ms-front-kit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Macmillan Studio's personal frontend generators",
+  "bin": {
+    "ms-front-kit": "./src/cli/index.js"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@vue/server-renderer": "^3.5.44",
+    "sass": "^1.106.1",
+    "vue": "^3.5.44"
+  },
+  "dependencies": {
+    "typescript": "^5.9.3"
+  }
+}

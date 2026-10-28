@@ -1,0 +1,21 @@
+@use "../abstracts" as ms;
+
+:root {
+  // Example palette only. Replace with each project's colors.
+  --color-primary: #000;
+  --color-secondary: #666;
+
+  --layout-columns: 4;
+  --layout-gutter: #{ms.rem(8px)};
+  --layout-margin: #{ms.rem(16px)};
+  --layout-max-width: #{ms.rem(1920px)};
+  --layout-width: calc(
+    min(100vw, var(--layout-max-width)) - var(--layout-margin) *
+      2 - var(--layout-gutter) * (var(--layout-columns) - 1)
+  );
+  --layout-column-width: calc(var(--layout-width) / var(--layout-columns));
+
+  @include ms.from(desktop) {
+    --layout-columns: 12;
+  }
+}

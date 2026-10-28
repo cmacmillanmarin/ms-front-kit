@@ -1,0 +1,36 @@
+@forward "settings";
+@use "settings";
+
+// Mixins convert these px design values to rem when emitting media queries.
+$breakpoints: (
+  tablet: 561px,
+  tablet-landscape: 769px,
+  desktop: 1024px,
+  desktop-medium: 1280px,
+  desktop-large: 1441px,
+  desktop-x-large: 1800px,
+) !default;
+
+// Set each style's font family independently; no shared family variable.
+$type-styles: (
+  h1: (
+    font-family: ("Helvetica Now Display", sans-serif),
+    font-size: 48px,
+    line-height: 1.2,
+  ),
+  h2: (
+    font-family: ("Helvetica Now Display", sans-serif),
+    font-size: 32px,
+    line-height: 1.25,
+  ),
+  body: (
+    font-family: ("Helvetica Now Display", sans-serif),
+    font-size: settings.$design-root-size,
+    line-height: 1.5,
+  ),
+  small: (
+    font-family: ("Helvetica Now Display", sans-serif),
+    font-size: 14px,
+    line-height: 1.5,
+  ),
+) !default;

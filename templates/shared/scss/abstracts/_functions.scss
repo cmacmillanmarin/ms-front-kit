@@ -1,0 +1,15 @@
+@use "sass:math";
+@use "sass:meta";
+
+@use "settings";
+
+// Design px -> rem, without forcing a pixel root size on the browser.
+@function rem($value) {
+  @if meta.type-of($value) != number or math.unit($value) != "px" {
+    @error "rem() expects a px length, for example rem(24px).";
+  }
+  @if meta.type-of(settings.$design-root-size) != number or math.unit(settings.$design-root-size) != "px" or settings.$design-root-size <= 0px {
+    @error "$design-root-size must be a positive px length.";
+  }
+  @return math.div($value, settings.$design-root-size) * 1rem;
+}

@@ -1,0 +1,30 @@
+@use "../abstracts" as ms;
+
+// CSS/JS breakpoint bridge consumed by useDevice. Keep labels stable.
+body::after {
+  display: none;
+  content: "mobile";
+
+  @include ms.from(tablet) {
+    content: "tablet";
+  }
+  @include ms.from(tablet-landscape) {
+    content: "tablet--landscape";
+  }
+  @include ms.from(desktop) {
+    content: "desktop";
+  }
+  @include ms.from(desktop-medium) {
+    content: "desktop--medium";
+  }
+  @include ms.from(desktop-large) {
+    content: "desktop--large";
+  }
+  @include ms.from(desktop-x-large) {
+    content: "desktop--x-large";
+  }
+
+  @media all and (pointer: coarse) {
+    --touch: 1;
+  }
+}

@@ -1,0 +1,9 @@
+// Loaded globally once by main.scss, never by component-level abstracts.
+// add styles copies this example font into public/assets/font/ automatically.
+@font-face {
+  font-family: "Helvetica Now Display";
+  src: url("/assets/font/HelveticaNowDisplayMedium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}

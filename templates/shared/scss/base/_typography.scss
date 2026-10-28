@@ -1,0 +1,18 @@
+@use "../abstracts" as ms;
+
+body {
+  // The body design size shares the conversion reference and emits 1rem.
+  // Keep the browser/user root font size unchanged.
+  @include ms.type(body);
+}
+
+// Example heading scale: customize the typography map for each project.
+h1 {
+  @include ms.type(h1);
+}
+
+h2 {
+  @include ms.type(h2);
+}
+
+// No universal descendant font-size rule: nested content inherits naturally.

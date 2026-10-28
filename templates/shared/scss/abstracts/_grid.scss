@@ -1,0 +1,49 @@
+@use "sass:math";
+@use "sass:meta";
+
+@function -valid-count($count, $minimum, $name) {
+  @if meta.type-of($count) != number {
+    @error "#{$name} expects a unitless integer greater than or equal to #{$minimum}.";
+  }
+  @if not math.is-unitless($count) or $count < $minimum or math.floor($count) != $count {
+    @error "#{$name} expects a unitless integer greater than or equal to #{$minimum}.";
+  }
+  @return $count;
+}
+
+@mixin grid() {
+  width: 100%;
+  max-width: var(--layout-max-width);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  column-gap: var(--layout-gutter);
+  padding-inline: var(--layout-margin);
+  margin-inline: auto;
+}
+
+@mixin columns($i) {
+  --columns: #{-valid-count($i, 1, "columns()")};
+  --columns-width: calc((var(--columns) / var(--layout-columns)) * 100%);
+  --columns-gap-width: calc(
+    var(--layout-gutter) * (1 - var(--columns) / var(--layout-columns))
+  );
+  width: calc(var(--columns-width) - var(--columns-gap-width));
+}
+
+@mixin gap($i, $side: "") {
+  @if $side != "" and $side != "both" and $side != "start" and $side != "end" and $side != "left" and $side != "right" {
+    @error "gap() side must be start, end, both, left, right, or an empty string.";
+  }
+  --gap: #{-valid-count($i, 0, "gap()")};
+  --gap-width: calc((var(--gap) / var(--layout-columns)) * 100%);
+  --gap-value: calc(var(--gap-width) + var(--layout-gutter) * var(--gap) / var(--layout-columns));
+  // Legacy left/right arguments follow logical start/end, including in RTL.
+  @if $side == "start" or $side == "left" {
+    margin-inline-start: var(--gap-value);
+  } @else if $side == "end" or $side == "right" {
+    margin-inline-end: var(--gap-value);
+  } @else {
+    margin-inline: var(--gap-value);
+  }
+}

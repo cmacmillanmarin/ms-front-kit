@@ -1,0 +1,12 @@
+{
+  "useResize": {
+    "template": "useResize.ts.tpl",
+    "dependencies": [],
+    "vueImports": "import { ref, onMounted, onUnmounted } from 'vue';\n"
+  },
+  "useDevice": {
+    "template": "useDevice.ts.tpl",
+    "dependencies": ["useResize"],
+    "vueImports": "import { ref, computed, watch, onMounted, onUnmounted } from 'vue';\nimport useResize from './useResize';\n"
+  }
+}

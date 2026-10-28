@@ -1,0 +1,18 @@
+// Minimal normalization. Preserve native headings, lists, links, focus rings,
+// control appearance, and hidden-element behavior rather than rebuilding them.
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}

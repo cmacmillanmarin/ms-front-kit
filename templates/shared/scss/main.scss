@@ -1,0 +1,9 @@
+// Application entry point. Include once, never import from component styles.
+@use "base/reset";
+@use "base/tokens";
+@use "base/fonts";
+@use "base/typography";
+@use "base/device";
+
+// Add project-wide utilities here when needed. Keep CSS-emitting modules out of
+// abstracts so components can import mixins without duplicating global styles.
