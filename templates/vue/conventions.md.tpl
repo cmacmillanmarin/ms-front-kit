@@ -7,11 +7,20 @@ precedence. If instructions conflict, explain the conflict before proceeding.
 
 ## Initialization and optional font callbacks
 
+`ms-front-kit.json` is personal configuration. Init excludes it through Git's
+local `info/exclude`, not the shared `.gitignore`. Keep generated application
+source tracked. Without Git, init warns that the config is not excluded; add
+the local exclusion once Git is initialized. Already tracked files are not
+untracked automatically.
+
 `ms-front-kit init --framework nuxt` creates configuration and
 `app/plugins/ms-front-kit.client.ts`, then runs `npm install gsap` to update the
-project's package.json and npm lockfile. It assumes Nuxt 4's default app/ layout;
-custom source/plugin directories need manual setup. Existing config or plugin
-files are not overwritten. `--no-install` skips dependency installation; install
+project's package.json and npm lockfile. The paths shown are Nuxt 4 defaults;
+init parses literal `srcDir`, `dir.assets`, and `dir.plugins` settings to place
+files in the configured source, assets, and plugin directories. It does not
+execute config code. Dynamic, layered, or environment-specific layouts need
+manual setup. Review custom component/composable scanning separately. Existing
+config or plugin files are not overwritten. `--no-install` skips dependency installation; install
 gsap using the project's package manager before running the app. Vue init remains
 config-only; do not copy a Nuxt plugin into a plain Vue application.
 

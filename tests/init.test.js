@@ -56,6 +56,65 @@ test('an existing plugin is preserved without creating configuration', async t =
   await assert.rejects(readFile(path.join(root, 'ms-front-kit.json')), { code: 'ENOENT' });
 });
 
+for (const [label, source, base, assets, plugins] of [
+  ['explicit default', 'export default defineNuxtConfig({ srcDir: "app" })', 'app', 'assets', 'plugins'],
+  ['custom source', 'export default defineNuxtConfig({ srcDir: "./src/" })', 'src', 'assets', 'plugins'],
+  ['root source', 'export default defineNuxtConfig({ srcDir: "." })', '', 'assets', 'plugins'],
+  ['custom directories', 'export default defineNuxtConfig({ srcDir: "frontend", dir: { assets: "static-assets", plugins: "integrations", pages: "views" } })', 'frontend', 'static-assets', 'integrations'],
+  ['irrelevant nested keys', '// srcDir: dynamic\nexport default defineNuxtConfig({ runtimeConfig: { public: { dir: "anything" } } })', 'app', 'assets', 'plugins']
+]) {
+  test(`Nuxt init adapts to ${label}`, async t => {
+    const root = await project(t);
+    await writeFile(path.join(root, 'nuxt.config.ts'), source);
+    const result = await run(['init', '--framework', 'nuxt', '--no-install'], root);
+    const plugin = path.posix.join(base, plugins, 'ms-front-kit.client.ts');
+    assert.ok((await readFile(path.join(root, plugin), 'utf8')).includes('gsap'));
+    assert.ok(result.includes(plugin));
+    const config = JSON.parse(await readFile(path.join(root, 'ms-front-kit.json'), 'utf8'));
+    assert.deepEqual(config.paths, {
+      components: path.posix.join(base, 'components'),
+      composables: path.posix.join(base, 'composables'),
+      styles: path.posix.join(base, assets, 'scss')
+    });
+    assert.equal(await readFile(path.join(root, 'nuxt.config.ts'), 'utf8'), source);
+    await assert.rejects(run(['init', '--framework', 'nuxt', '--no-install'], root), { code: 'EEXIST' });
+  });
+}
+
+for (const source of [
+  'export default defineNuxtConfig({ srcDir: getDir() })',
+  'export default defineNuxtConfig({ srcDir: "../outside" })',
+  'export default defineNuxtConfig({ srcDir: "/outside" })',
+  'export default defineNuxtConfig({ dir: { plugins: "../outside" } })',
+  'export default defineNuxtConfig({ dir: { plugins: false } })',
+  'export default defineNuxtConfig({ dir: getDirectories() })',
+  'export default defineNuxtConfig({ ...shared })',
+  'export default defineNuxtConfig({ extends: ["./base"] })',
+  'export default defineNuxtConfig({ srcDir: "src", srcDir: "app" })',
+  'export default defineNuxtConfig({ [key]: "src" })',
+  'export default defineNuxtConfig({',
+  'export default configuration'
+]) {
+  test(`unsupported layout fails before writes: ${source}`, async t => {
+    const root = await project(t);
+    await writeFile(path.join(root, 'nuxt.config.ts'), source);
+    await assert.rejects(run(['init', '--framework', 'nuxt', '--no-install'], root));
+    await assert.rejects(readFile(path.join(root, 'ms-front-kit.json')), { code: 'ENOENT' });
+    await assert.rejects(readFile(path.join(root, 'app/plugins/ms-front-kit.client.ts')), { code: 'ENOENT' });
+  });
+}
+
+test('custom plugin is preserved before creating configuration', async t => {
+  const root = await project(t);
+  await writeFile(path.join(root, 'nuxt.config.js'), 'export default defineNuxtConfig({ srcDir: "src", dir: { plugins: "integrations" } })');
+  await directory(root, 'src/integrations');
+  const file = path.join(root, 'src/integrations/ms-front-kit.client.ts');
+  await writeFile(file, 'custom plugin');
+  await assert.rejects(run(['init', '--framework', 'nuxt', '--no-install'], root), { code: 'EEXIST' });
+  assert.equal(await readFile(file, 'utf8'), 'custom plugin');
+  await assert.rejects(readFile(path.join(root, 'ms-front-kit.json')), { code: 'ENOENT' });
+});
+
 test('Vue init stays config-only', async t => {
   const root = await project(t);
   await run(['init', '--framework', 'vue'], root);

@@ -147,6 +147,15 @@ files just to make a generator run.
 
 ## Initialization details
 
+`ms-front-kit.json` is personal tooling configuration. Init automatically adds
+its project-scoped path to Git's local `info/exclude`, including in nested
+projects and linked worktrees, without changing the shared `.gitignore`.
+Existing exclusion rules are preserved and the rule is not duplicated.
+Generated application files remain eligible for commits. If Git is unavailable,
+init still creates the config but warns that it has not been excluded; add the
+local exclusion after initializing Git. Exclusions do not untrack files already
+committed to Git; the kit never removes tracked files from the index.
+
 Nuxt initialization now creates both `ms-front-kit.json` and
 `app/plugins/ms-front-kit.client.ts`, then runs `npm install gsap`. This updates
 the consuming project's package.json and npm lockfile. The client plugin prints
@@ -164,7 +173,16 @@ running npm; install gsap with your chosen package manager afterward. Automatic
 installation is npm-only and refuses conflicting package-manager configuration.
 Existing init config/plugin files are preserved; init is not an upgrade command.
 If npm installation fails, the generated files remain and the error explains how
-to retry. Nuxt init currently targets the default Nuxt 4 app/ layout only.
+to retry. Nuxt init statically parses `nuxt.config.ts`, `.js`, or `.mjs` without
+executing it. Literal `srcDir` values (including `"app"`, `"src/"`, or `"."`)
+set the component/composable source root; literal `dir.assets` and `dir.plugins`
+set the SCSS and plugin directories relative to that source root. Without these
+settings, it uses Nuxt 4's `app/` defaults. Paths must remain inside the project.
+Dynamic layout expressions, spreads/computed keys at the config or dir level,
+layered/environment-specific layouts, and multiple config files require manual
+setup and are rejected before files are created. Unrelated nested settings and
+comments do not affect detection. Custom component scanning or composable import
+settings still need review; init does not change Nuxt configuration.
 
 Use `--framework vue` for a plain Vue project (config-only, no Nuxt plugin or GSAP install). Nuxt defaults to `app/` and Vue to
 `src/`; inspect `ms-front-kit.json` and adjust paths for the actual project.

@@ -114,7 +114,7 @@ test('local exclusions are scoped to a nested project, including literal pattern
 
 test('linked worktrees use the Git-resolved local exclude location', async t => {
   const root = await project(t);
-  git(root, 'add', '--', 'ms-front-kit.json');
+  git(root, 'add', '-f', '--', 'ms-front-kit.json');
   git(root, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', '-c', 'commit.gpgsign=false', 'commit', '-qm', 'Test fixture');
   const linked = `${root}-linked`;
   t.after(() => rm(linked, { recursive: true, force: true }));
