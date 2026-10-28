@@ -340,6 +340,17 @@ Components that add animation or smooth scrolling must consider
 
 ## Ownership and updates
 
+This conventions document is a personal coding aid. add conventions excludes only
+this document through Git's local info/exclude, not through shared .gitignore
+rules. AGENTS.md remains shareable and is never excluded by the kit. Existing
+project instructions remain untouched. The generated reference requires agents to
+read and follow these conventions when present; only the file's presence is
+optional. When absent, continue normally without creating or fetching it. Shared
+project requirements take precedence over conflicting local conventions. Rules
+needed by every contributor belong in tracked project instructions. Exclusions
+do not untrack files already in Git; never remove shared instructions
+automatically or force-add personal files.
+
 Generated files belong to this project and may be edited. Updating the toolkit
 does not automatically update this document or existing components. Review
 convention changes explicitly and preserve project-specific decisions.

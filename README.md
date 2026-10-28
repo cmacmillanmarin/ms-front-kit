@@ -63,7 +63,10 @@ style entries. Review font licensing before deploying or sharing the example.
 
 The conventions command creates docs/conventions/ms-front-kit.md and creates
 AGENTS.md if absent. If AGENTS.md already exists, add the printed reference
-manually; the command leaves the existing document unchanged. Neither command
+manually; the command leaves the existing document unchanged. AGENTS.md stays
+shareable and is never excluded by the kit. Only the personal conventions document
+is excluded locally through Git's info/exclude, without adding shared .gitignore
+rules. Git must be initialized before running add conventions. Neither command
 silently upgrades customized files.
 
 ### 3. Generate only what you need
@@ -124,7 +127,8 @@ Edit generated files normally: they belong to the project. Customize the copied
 SCSS tokens, typography, and optional font usage. Run the project's existing dev
 and build scripts (commonly npm run dev and npm run build), then commit the
 configuration, generated files, application setup edits, and package/lockfile
-changes with the project. AI-created components should omit unused commented
+changes with the project, including AGENTS.md if created. Personal conventions
+are locally excluded; do not force-add that document. AI-created components should omit unused commented
 examples; the CLI includes those only as scaffolding reminders.
 
 ### Running commands again
@@ -171,15 +175,36 @@ Install `sass` as a development dependency in projects using generated SCSS.
 
 `ms-front-kit add conventions` reads the current project's configuration and
 creates `docs/conventions/ms-front-kit.md`. If no `AGENTS.md` exists, it creates
-one with a reference. If one already exists, it preserves it exactly and prints
-a reference for you to add manually (unless it already contains the reference).
-Commit both files with the project. AI tool support for AGENTS.md varies; a
-Markdown reference is not a universal automatic include.
+one with a conditional local-conventions reference. If one already exists, it
+preserves it exactly and prints the block for you to add manually (or to replace
+an older mandatory reference). An identical optional block is not duplicated.
 
-Repeated runs leave identical documents unchanged. If the conventions differ
-because you customized them or updated the toolkit, the command stops and asks
-for a manual comparison; it never silently overwrites them. No automatic project
-migration or conventions update command is implemented.
+AGENTS.md should be tracked and shared. The generated block explicitly requires
+agents to check for the local document and **read and follow it when present**.
+If absent, agents continue normally without creating or fetching it. Only the
+file's presence is optional, not compliance when it is available. Shared project
+requirements take precedence over conflicting personal conventions. Requirements
+for every contributor belong in shared, tracked instructions instead.
+
+Only docs/conventions/ms-front-kit.md is excluded, using Git's local info/exclude
+(normally .git/info/exclude). The command asks Git for the correct location,
+including linked worktrees, and scopes the rule to the project if it is inside a
+larger repository. Git must already be initialized. Existing exclusion rules are
+preserved and repeated runs do not duplicate the entry. No new .gitignore rules
+are added. Legacy rules under the kit's exact old .gitignore heading are removed;
+unrelated rules stay intact. Existing rules elsewhere that still ignore AGENTS.md
+are reported for manual review, not silently overridden.
+
+If the personal document is already tracked, the command warns: local exclusions
+do not untrack it, and the command never removes tracked files. Review that
+situation manually. AI tool support for AGENTS.md varies; an explicit instruction
+improves discoverability but cannot guarantee every tool will honor it.
+
+Repeated runs leave identical documents unchanged. If conventions differ because
+you customized them or updated the toolkit, they are preserved and a manual
+comparison is suggested; local exclusion setup still completes. Existing
+AGENTS.md content is never migrated automatically. No automatic conventions
+update command is implemented.
 
 The component example is rendered from the actual component template, so future
 installations reflect template changes. Review the surrounding conventions prose

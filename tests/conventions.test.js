@@ -2,12 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, writeFile, rm, symlink } from 'node:fs/promises';
 import os from 'node:os';
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { run } from '../src/cli/index.js';
 
 async function project(t, framework = 'nuxt') {
   const root = await mkdtemp(path.join(os.tmpdir(), 'ms-conventions-'));
   t.after(() => rm(root, { recursive: true, force: true }));
+  execFileSync('git', ['-C', root, 'init', '-q']);
   await run(['init', '--framework', framework, '--no-install'], root);
   return root;
 }
@@ -61,7 +63,7 @@ test('customized documents are never overwritten', async t => {
   await run(['add', 'conventions'], root);
   await writeFile(conventions(root), 'My customized conventions');
   const agents = await readFile(path.join(root, 'AGENTS.md'), 'utf8');
-  await assert.rejects(run(['add', 'conventions'], root), /update it manually/);
+  assert.match(await run(['add', 'conventions'], root), /update it manually/);
   assert.equal(await readFile(conventions(root), 'utf8'), 'My customized conventions');
   assert.equal(await readFile(path.join(root, 'AGENTS.md'), 'utf8'), agents);
 });
