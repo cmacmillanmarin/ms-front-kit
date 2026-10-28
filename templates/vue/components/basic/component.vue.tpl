@@ -27,6 +27,7 @@
 
 <template>
   <div class="{{bemBlock}}">
+    <p class="{{bemBlock}}__name">{{componentName}}</p>
   </div>
 </template>
 

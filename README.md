@@ -258,8 +258,7 @@ copy the foundation and register it manually as described below.
 ```text
 main.scss                   global entry, include once
 abstracts/_index.scss       CSS-free public Sass tools
-abstracts/_settings.scss    single $design-root-size declaration
-abstracts/_variables.scss   editable fonts, breakpoint and typography maps
+abstracts/_variables.scss   $design-root-size, editable fonts, breakpoint and typography maps
 abstracts/_functions.scss   rem() conversion from px design values
 abstracts/_mixins.scss      font-size(), from(), type(), with token validation
 base/_reset.scss            minimal normalization, native focus/controls preserved
@@ -294,7 +293,8 @@ by importing `abstracts`.
 
 Keep the root font size at the browser default. Body starts at 1rem / 1.5;
 h1 and h2 have editable example sizes of 48px and 32px, emitted as 3rem and 2rem.
-Typography tokens are `h1`, `h2`, `body` (16px), and `small` (14px).
+The `$types` map in `abstracts/_variables.scss` defines typography tokens:
+`h1`, `h2`, `body` (16px), and `small` (14px).
 AI-generated components must reuse existing Sass mixins and functions whenever
 applicable rather than hand-writing equivalent typography, breakpoints, grid
 rules, or conversions. Write design sizes in px: `@include font-size(24px)` emits
@@ -316,7 +316,7 @@ font-size, line-height, and letter-spacing values while preserving unitless rati
 The kit's default breakpoints are tablet 561px, tablet-landscape
 769px, desktop 1024px, desktop-medium 1280px, desktop-large 1441px, and
 desktop-x-large 1800px. from() uses the same conversion to emit rem queries.
-$design-root-size is declared only in abstracts/_settings.scss and defaults to
+$design-root-size is declared only in abstracts/_variables.scss and defaults to
 16px. Functions and the body design-size token share that setting. It is a design
 conversion reference, not a root CSS font-size setting. Media-query rem units use the browser's initial font size.
 Edit the project-owned variables file for consistent values across Vue style compilations.
@@ -356,7 +356,11 @@ Sass usage, and customization guidance. Sass compilation tests run with `npm tes
 
 - Vue and Nuxt share the Vue basic component template.
 - PascalCase directories and filenames, path-prefixed BEM-style root classes,
-  TypeScript setup scripts, unscoped SCSS, and an empty wrapper div.
+  TypeScript setup scripts, unscoped SCSS, and a wrapper div containing an
+  unstyled name paragraph, e.g. `<p class="product-card__name">ProductCard</p>`.
+  The text is the component filename without `.vue` (including `Index` for
+  entry-point components); its class uses the wrapper's BEM namespace.
+  Replace or remove this placeholder when implementing the component.
   Add slots manually only when needed. The script includes commented examples
   for typed props with reactive destructuring and native defaults (Vue 3.5+),
   typed emits with zero/one/multiple parameters,
@@ -365,6 +369,11 @@ Sass usage, and customization guidance. Sass compilation tests run with `npm tes
 - `ms-front-kit add component Home/Hero/BackButton` creates
   `<configured component root>/Home/Hero/BackButton.vue` with first wrapper class
   `home__hero__back-button`. The component root itself is excluded from the class.
+  A final component named exactly `Index` is treated as its directory's entry
+  point: `Header/Index` uses `header`, and `Home/Header/Index` uses
+  `home__header`, without changing the generated file paths. A standalone
+  `Index` still uses `index`. Other names and intermediate `Index` directories
+  are unchanged.
 - Keep global SCSS selectors under the full component namespace: path prefixes
   reduce collisions, but are not a guarantee against all CSS collisions.
 - Existing files are never overwritten. Generated code belongs to its project.

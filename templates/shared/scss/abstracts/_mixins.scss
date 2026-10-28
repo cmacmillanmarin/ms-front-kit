@@ -19,11 +19,11 @@
 }
 
 @mixin type($name) {
-  @if not map.has-key(variables.$type-styles, $name) {
-    @error "Unknown typography token '#{$name}'. Check $type-styles.";
+  @if not map.has-key(variables.$types, $name) {
+    @error "Unknown typography token '#{$name}'. Check $types.";
   }
 
-  @each $property, $value in map.get(variables.$type-styles, $name) {
+  @each $property, $value in map.get(variables.$types, $name) {
     @if ($property == font-size or $property == line-height or $property == letter-spacing) and meta.type-of($value) == number and math.unit($value) == "px" {
       #{$property}: functions.rem($value);
     } @else {

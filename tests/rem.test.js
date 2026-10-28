@@ -36,7 +36,7 @@ test('every default min-width breakpoint is converted to rem', () => {
 });
 
 test('type converts px line heights but preserves unitless ratios', () => {
-  const css = compile('@use "abstracts" as ms with ($type-styles: (example: (font-size: 24px, line-height: 32px, letter-spacing: 1px))); .example { @include ms.type(example); }');
+  const css = compile('@use "abstracts" as ms with ($types: (example: (font-size: 24px, line-height: 32px, letter-spacing: 1px))); .example { @include ms.type(example); }');
   assert.match(css, /font-size: 1.5rem/);
   assert.match(css, /line-height: 2rem/);
   assert.match(css, /letter-spacing: 0.0625rem/);
@@ -48,6 +48,14 @@ test('one design-root setting controls font sizes, breakpoints, and body baselin
   assert.match(css, /font-size: 1.2rem/);
   assert.match(css, /font-size: 1rem/);
   assert.match(css, /min-width: 51.2rem/);
+});
+
+test('variables owns the configurable design reference used by all Sass tools', () => {
+  const css = compile('@use "abstracts/variables" with ($design-root-size: 20px); @use "abstracts" as *; .example { @include type(body); padding: rem(30px); @include from(desktop) { margin: rem(40px); } }');
+  assert.match(css, /font-size: 1rem/);
+  assert.match(css, /padding: 1.5rem/);
+  assert.match(css, /min-width: 51.2rem/);
+  assert.match(css, /margin: 2rem/);
 });
 
 test('rem rejects non-px input and invalid conversion references', () => {

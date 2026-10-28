@@ -17,6 +17,7 @@ test('Nuxt component generation uses BEM, SCSS and shared Vue template', async t
   await run(['add', 'component', 'XMLViewer'], root);
   const content = await readFile(path.join(root, 'app/components/XMLViewer.vue'), 'utf8');
   assert.match(content, /class="xml-viewer"/);
+  assert.match(content, /<p class="xml-viewer__name">XMLViewer<\/p>/);
   assert.match(content, /<style lang="scss">\n\/\/ @use "abstracts" as \*;/);
   assert.doesNotMatch(content, /<slot\b/);
   assert.match(content, /<script setup lang="ts">/);
@@ -71,6 +72,42 @@ test('nested paths respect a custom component root', async t => {
   assert.match(content, /class="home__xml-viewer"/);
   assert.match(content, /<style lang="scss">\n\/\/ @use "abstracts" as \*;/);
 });
+
+for (const framework of ['nuxt', 'vue']) {
+  test(`${framework} Index entry points omit only the final Index from the namespace`, async t => {
+    const root = await project(t, framework);
+    const configFile = path.join(root, 'ms-front-kit.json');
+    const config = JSON.parse(await readFile(configFile, 'utf8'));
+    config.paths.components = 'custom/ui';
+    await writeFile(configFile, JSON.stringify(config));
+    for (const [input, namespace] of [
+      ['Header/Index', 'header'],
+      ['Home/Header/Index', 'home__header'],
+      ['Index', 'index'],
+      ['Index/BackButton', 'index__back-button'],
+      ['Index/Index', 'index'],
+      ['Header/IndexButton', 'header__index-button'],
+      ['Footer/INDEX', 'footer__index'],
+      ['Header/Navigation', 'header__navigation'],
+    ]) {
+      await run(['add', 'component', input], root);
+      const file = path.join(root, 'custom/ui', `${input}.vue`);
+      const content = await readFile(file, 'utf8');
+      assert.ok(content.includes(`<div class="${namespace}">`), input);
+      assert.ok(content.includes(`.${namespace} {`), input);
+      assert.ok(content.includes(`<p class="${namespace}__name">${input.split('/').at(-1)}</p>`), input);
+      const style = content.match(/<style lang="scss">([\s\S]*?)<\/style>/)[1];
+      assert.doesNotMatch(style, /__name/);
+      assert.doesNotMatch(content, /\{\{/);
+      await assert.rejects(run(['add', 'component', input], root), { code: 'EEXIST' });
+      assert.equal(await readFile(file, 'utf8'), content);
+    }
+    const file = path.join(root, 'custom/ui/Header/Index.vue');
+    await writeFile(file, 'customized entry point');
+    await assert.rejects(run(['add', 'component', 'Header/Index'], root), { code: 'EEXIST' });
+    assert.equal(await readFile(file, 'utf8'), 'customized entry point');
+  });
+}
 
 test('rejects unsafe or malformed component paths', async t => {
   const root = await project(t);

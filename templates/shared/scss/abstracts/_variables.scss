@@ -1,5 +1,5 @@
-@forward "settings";
-@use "settings";
+// Single design conversion reference. Does not set the browser root font size.
+$design-root-size: 16px !default;
 
 // Mixins convert these px design values to rem when emitting media queries.
 $breakpoints: (
@@ -12,7 +12,7 @@ $breakpoints: (
 ) !default;
 
 // Set each style's font family independently; no shared family variable.
-$type-styles: (
+$types: (
   h1: (
     font-family: ("Helvetica Now Display", sans-serif),
     font-size: 48px,
@@ -25,7 +25,7 @@ $type-styles: (
   ),
   body: (
     font-family: ("Helvetica Now Display", sans-serif),
-    font-size: settings.$design-root-size,
+    font-size: $design-root-size,
     line-height: 1.5,
   ),
   small: (

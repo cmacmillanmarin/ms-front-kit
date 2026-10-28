@@ -25,6 +25,11 @@ test('creates conventions whose example matches real generated code, and an agen
   assert.match(doc, /\*\*nuxt\*\*/);
   assert.match(doc, /app\/components/);
   assert.match(doc, /home__hero__back-button/);
+  assert.match(doc, /<p class="home__hero__back-button__name">BackButton<\/p>/);
+  assert.match(doc, /Do not add styles just for\n  this placeholder/);
+  assert.match(doc, /`Header\/Index` becomes `header`/);
+  assert.match(doc, /`Home\/Header\/Index` becomes `home__header`/);
+  assert.match(doc, /A standalone `Index` still uses `index`/);
   assert.match(doc, /unscoped/);
   assert.match(doc, /Always use a wrapper/);
   assert.match(doc, /Manual Nuxt installation/);

@@ -53,6 +53,11 @@ face; explicitly load additional faces if the UI depends on them.
   `Home/Hero/BackButton` becomes `home__hero__back-button`.
   `ProductCard` becomes `product-card`; `XMLViewer` becomes `xml-viewer`.
   The configured component root is not part of the class name.
+  For entry-point components named exactly `Index`, omit only the final `Index`
+  segment from the class: `Header/Index` becomes `header` and
+  `Home/Header/Index` becomes `home__header`. Keep the file path unchanged
+  (`Header/Index.vue`). A standalone `Index` still uses `index`; other names
+  and intermediate `Index` directories follow the normal rule.
 - This path-prefixed namespace is a studio convention, not strict single-level
   BEM. Use the full root as the prefix for elements and modifiers, for example
   `home__hero__back-button__icon` and `home__hero__back-button--disabled`.
@@ -76,9 +81,14 @@ face; explicitly load additional faces if the UI depends on them.
   be auto-imported; plain Vue requires the import. Compiler macros defineProps
   and defineEmits do not need imports.
   Vue 3 uses onBeforeUnmount, not beforeDestroy.
-- The basic generator has an empty wrapper, with no slot. Add slots manually
-  only when needed. Keep the required wrapper and adapt its contents to the
-  requested behavior; don't add unrelated features.
+- The basic generator includes a name paragraph inside the wrapper, with no
+  slot: `<p class="product-card__name">ProductCard</p>`. Its text is the
+  component filename without `.vue` (`Index` for an Index entry point), and its
+  class is the wrapper's BEM namespace plus `__name`. Do not add styles just for
+  this placeholder. Replace or remove it when implementing the requested
+  behavior, including in AI-generated components; it is not required content
+  for finished components. Add slots manually only when needed. Keep the
+  required wrapper and don't add unrelated features.
 
 ### Basic component example
 
@@ -363,7 +373,8 @@ Import abstracts without a namespace and use the existing tools as needed:
 
 The example typography tokens are `h1` (48px), `h2` (32px), `body` (16px), and
 `small` (14px). The global typography file applies h1, h2, and body examples.
-Write design sizes in px in the typography map. `type()` converts px font-size,
+Write design sizes in px in the `$types` map in `abstracts/_variables.scss`.
+`type()` converts px font-size,
 line-height, and letter-spacing values, preserving unitless line heights.
 Typography tokens each include font-family, font-size, and line-height, with no
 shared font-family or line-height variables. All example tokens select
@@ -371,7 +382,7 @@ shared font-family or line-height variables. All example tokens select
 applies the family as well as size and line height, with no separate declaration.
 
 The shared `rem()` function divides px values by `$design-root-size`, declared
-only in `abstracts/_settings.scss` (16px by default). The body design-size token
+only in `abstracts/_variables.scss` (16px by default). The body design-size token
 uses that same setting, so its default output stays 1rem. Edit this one setting
 rather than defining another conversion base in variables or functions.
 `font-size(24px)` emits `font-size: 1.5rem`. Keep the browser root size unchanged;

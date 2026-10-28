@@ -49,6 +49,6 @@ test('invalid mixin tokens produce actionable compilation errors', () => {
 });
 
 test('build-time variables can be configured before loading main', () => {
-  const css = compile('@use "abstracts" with ($type-styles: (body: (font-size: 16px, line-height: 1.7), h1: (font-size: 48px), h2: (font-size: 32px))); @use "main";');
+  const css = compile('@use "abstracts" with ($types: (body: (font-size: 16px, line-height: 1.7), h1: (font-size: 48px), h2: (font-size: 32px))); @use "main";');
   assert.match(css, /line-height: 1.7/);
 });
