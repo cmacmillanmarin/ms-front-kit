@@ -69,6 +69,7 @@ export async function nuxtLayout(root) {
     }
   }
   return {
+    sourceDirectory,
     paths: {
       components: path.posix.join(sourceDirectory, 'components'),
       composables: path.posix.join(sourceDirectory, 'composables'),

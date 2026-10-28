@@ -106,20 +106,23 @@ const { canHover } = useDevice();
 </template>
 ```
 
-Import the CSS-free Sass tools inside component styles when needed. Nuxt's
-standard layout uses:
+Import the CSS-free Sass tools inside Vue/Nuxt component styles when needed.
+The shared component template includes `// @use "abstracts" as *;` as a reminder:
 
 ```scss
-@use "@/assets/scss/ms-front-kit/abstracts" as ms;
+@use "abstracts" as *;
 
 .home__hero__back-button {
-  @include ms.type(body);
-  @include ms.font-size(20px);
+  @include type(body);
+  @include font-size(20px);
+  padding: rem(24px);
 }
 ```
 
-For Vue, use a relative path appropriate to that component's location or a
-configured alias. Do not import the global main.scss from every component.
+`add styles` configures a Vite `resolve.alias.abstracts` entry for the installed
+abstracts directory, under `vite` in Nuxt config or in Vue's root Vite config.
+The import can then be uncommented when needed. For manual installation, add
+that alias explicitly. Do not import the global main.scss from every component.
 
 ### 4. Customize, run, and commit
 
@@ -138,7 +141,7 @@ examples; the CLI includes those only as scaffolding reminders.
 | init | Refuses existing config/plugin files; not an update command. |
 | add component | Refuses an existing component; use a new name or edit it manually. |
 | add composable | Skips existing files and dependencies with a message. |
-| add styles | Skips identical files and avoids duplicate entries; differing styles/fonts stop installation before edits. |
+| add styles | Skips identical files and avoids duplicate entries; differing styles/fonts stop installation before edits. Creates a dev grid helper and app mount, preserving existing helpers and mounts. |
 | add conventions | Leaves matching output alone; differing conventions require manual comparison; existing AGENTS.md is preserved. |
 
 Updating the toolkit changes future generation, not existing project code. To
@@ -248,7 +251,8 @@ Linked target paths are refused. Configuration editing preserves existing source
 rather than reformatting the whole file. Sass is not installed automatically;
 the command prints `npm install --save-dev sass` when needed.
 
-You can also copy the foundation and register it manually as described below.
+The command also installs a development grid overlay; see below. You can also
+copy the foundation and register it manually as described below.
 `add conventions` alone does not copy or activate styles.
 
 ```text
@@ -270,22 +274,37 @@ In Nuxt, merge `css: ["@/assets/scss/ms-front-kit/main.scss"]` into `nuxt.config
 from `src/main.ts` for the default `src/assets/scss` layout. Install `sass` as a
 dev dependency in the consuming project.
 
-Components import only `abstracts` with an explicit relative path or configured
-alias, for example `@use "@/assets/scss/ms-front-kit/abstracts" as ms;` in a default Nuxt app.
+Components import only `abstracts`, using `@use "abstracts" as *;` and calling
+helpers without a namespace. `add styles` configures a portable Vite alias using
+`fileURLToPath(new URL("./<styles>/ms-front-kit/abstracts", import.meta.url))`.
+Vue setup edits a root `vite.config.ts`, `.js`, `.mts`, or `.mjs`, or creates
+`vite.config.ts` if absent. Nuxt setup merges `vite.resolve.alias` in its config.
+Existing plugins, aliases, and comments are preserved; repeat runs do not add
+duplicate entries. Dynamic objects, array-form aliases, CommonJS Vite configs,
+and conflicting abstracts aliases stop installation before any changes; merge
+manually for those layouts. No new toolkit configuration option is required.
 Nuxt setup reuses its built-in `@` alias without adding configuration. It assumes
 Nuxt 4's default app/ source directory or honors an explicit literal srcDir.
 Styles outside that source directory use the built-in `@@` root alias. Dynamic
-srcDir expressions require manual setup. Vue retains relative imports because
-an `@` alias is not guaranteed.
-Use `@include ms.type(body)` and `@include ms.from(tablet)` as needed. Do not
+srcDir expressions require manual setup. In Vue, an `@` alias is not guaranteed;
+use the installed `abstracts` alias or configure it explicitly for manual setup.
+Use `@include type(body)` and `@include from(tablet)` as needed. Do not
 import `main.scss` in components. No CSS, font faces, or reset is emitted simply
 by importing `abstracts`.
 
 Keep the root font size at the browser default. Body starts at 1rem / 1.5;
 h1 and h2 have editable example sizes of 48px and 32px, emitted as 3rem and 2rem.
 Typography tokens are `h1`, `h2`, `body` (16px), and `small` (14px).
-Write design sizes in px: `@include ms.font-size(24px)` emits 1.5rem, and
-`ms.rem(24px)` can be used for other properties. Typography-map font sizes
+AI-generated components must reuse existing Sass mixins and functions whenever
+applicable rather than hand-writing equivalent typography, breakpoints, grid
+rules, or conversions. Write design sizes in px: `@include font-size(24px)` emits
+1.5rem. Always use `rem()` for lengths that should scale with accessible text
+sizing, including padding, margins, and gaps around text: `padding: rem(24px)`.
+Use `rem()` for length-based line-height and letter-spacing too, unless a mixin
+already converts them. Preserve unitless line-height and zero, and meaningful
+percentage/intrinsic/viewport sizing; fixed decorative hairlines may remain px.
+Avoid fixed heights that clip enlarged text. Keep the browser root size unchanged.
+Typography-map font sizes
 are written in px and converted by type(). Root CSS tokens contain example
 `--color-primary`, `--color-secondary`, and layout settings, not font settings.
 The layout maximum is rem(1920px), or 120rem at the default design reference. Each type
@@ -358,6 +377,58 @@ Edit `templates/vue/components/basic/component.vue.tpl` to refine the default.
 Generated components intentionally have no empty elements or modifiers: add them
 as needed using `block__element` and `block--modifier`.
 
+## Development grid overlay
+
+`add styles` creates `<configured components directory>/Helper/Grid.vue`, based
+on the Pentsalariok grid helper, and mounts it in the application shell:
+
+- **Nuxt:** `<srcDir>/app.vue` (`app/app.vue` by default), guarded by
+  `import.meta.dev`.
+- **Vue/Vite:** `src/App.vue`, guarded by `import.meta.env.DEV`.
+
+It uses an explicit relative import, so a custom component directory does not
+require Nuxt auto-import configuration. Existing script/template/style content
+is preserved. A missing app shell is created (NuxtLayout/NuxtPage for Nuxt, an
+empty wrapper for Vue). Existing Helper/Grid.vue files and existing grid mounts
+are never overwritten or duplicated. Complex/external app templates or scripts
+that cannot be safely merged are left untouched and the CLI prints a manual
+mount snippet instead. Dynamic/layered Nuxt source layouts need manual mounting.
+
+The small toggle button shows/hides the overlay and remembers visibility in
+localStorage under `helper-grid-visible`. Disabled storage does not break the
+toggle. Storage is read only after mount to keep SSR/hydration safe. The button
+has an accessible label and pressed state; the visual overlay ignores pointer
+input and is hidden from assistive technology. Neither is rendered in production
+by the generated development-only mount.
+
+The overlay uses `@use "abstracts" as *;`, `grid()`, and `columns(1)` with the
+installed layout tokens. It supplies 12 spans; the default four-column layout
+clips extra rows, and the desktop layout shows all 12 columns. Adapt the helper
+if the project changes the grid beyond those defaults. It does not require
+useResize or useDevice. The generated helper belongs to the project; customize
+it normally. `styles.grid` remains an installation marker for the SCSS grid,
+not a runtime toggle for the helper.
+
+For manual installation, copy
+`templates/vue/components/helper/Grid.vue.tpl` to your components directory as
+`Helper/Grid.vue` (without `.tpl`), configure the abstracts alias, then merge:
+
+```vue
+<script setup lang="ts">
+import MsFrontKitGrid from "./components/Helper/Grid.vue";
+const msFrontKitDev = import.meta.dev; // Nuxt; use import.meta.env.DEV in Vue/Vite
+</script>
+
+<template>
+  <!-- Keep the existing application content. -->
+  <MsFrontKitGrid v-if="msFrontKitDev" />
+</template>
+```
+
+Adjust the import relative to the app shell. Merge into existing blocks rather
+than adding duplicate script setup or template blocks. Keep the development
+guard when relocating the helper to another layout.
+
 ## Flex grid foundation
 
 `add styles` also copies abstracts/_grid.scss and exposes grid(), columns(), and
@@ -366,10 +437,10 @@ Init leaves that marker false until styles are installed. Existing installations
 with differing files still require a deliberate manual merge, not an overwrite.
 
 ```scss
-@use "@/assets/scss/ms-front-kit/abstracts" as ms;
+@use "abstracts" as *;
 .cards {
-  @include ms.grid();
-  &__item { @include ms.columns(4); }
+  @include grid();
+  &__item { @include columns(4); }
 }
 ```
 

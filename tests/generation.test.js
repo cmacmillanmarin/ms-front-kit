@@ -17,6 +17,7 @@ test('Nuxt component generation uses BEM, SCSS and shared Vue template', async t
   await run(['add', 'component', 'XMLViewer'], root);
   const content = await readFile(path.join(root, 'app/components/XMLViewer.vue'), 'utf8');
   assert.match(content, /class="xml-viewer"/);
+  assert.match(content, /<style lang="scss">\n\/\/ @use "abstracts" as \*;/);
   assert.doesNotMatch(content, /<slot\b/);
   assert.match(content, /<script setup lang="ts">/);
   assert.match(content, /<style lang="scss">/);
@@ -68,6 +69,7 @@ test('nested paths respect a custom component root', async t => {
   await run(['add', 'component', 'Home/XMLViewer'], root);
   const content = await readFile(path.join(root, 'src/ui/Home/XMLViewer.vue'), 'utf8');
   assert.match(content, /class="home__xml-viewer"/);
+  assert.match(content, /<style lang="scss">\n\/\/ @use "abstracts" as \*;/);
 });
 
 test('rejects unsafe or malformed component paths', async t => {

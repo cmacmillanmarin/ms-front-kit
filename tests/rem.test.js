@@ -11,6 +11,15 @@ test('px font mixin and rem function share the default 16px reference', () => {
   assert.match(css, /padding: 2rem/);
 });
 
+test('unnamespaced component tools convert text sizing and spacing', () => {
+  const css = compile('@use "abstracts" as *; .example { @include type(body); @include font-size(20px); padding: rem(24px); margin-block: rem(16px); @include from(tablet) { padding-inline: rem(32px); } }');
+  assert.match(css, /font-size: 1.25rem/);
+  assert.match(css, /padding: 1.5rem/);
+  assert.match(css, /margin-block: 1rem/);
+  assert.match(css, /min-width: 35.0625rem/);
+  assert.match(css, /padding-inline: 2rem/);
+});
+
 test('h1, h2 and body examples emit rem font sizes', () => {
   const css = compile('@use "main";');
   assert.match(css, /h1 \{[^}]*font-size: 3rem/s);

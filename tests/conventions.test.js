@@ -32,6 +32,18 @@ test('creates conventions whose example matches real generated code, and an agen
   assert.match(doc, /@\/assets\/scss\/ms-front-kit\/main.scss/);
   assert.match(doc, /does not install styles/);
   assert.match(doc, /browser's root font size/);
+  assert.match(doc, /app\/components\/Helper\/Grid.vue/);
+  assert.match(doc, /Development grid overlay/);
+  assert.match(doc, /import.meta.dev/);
+  assert.match(doc, /import.meta.env.DEV/);
+  assert.match(doc, /AI-generated components must reuse the installed SCSS mixins and functions/);
+  assert.match(doc, /Always use `rem\(\)`/);
+  assert.match(doc, /margins, gaps, or dimensions around text/);
+  assert.match(doc, /@use "abstracts" as \*;/);
+  assert.match(doc, /padding-inline: rem\(32px\)/);
+  assert.match(doc, /add styles` configures the Vite alias/);
+  assert.match(doc, /abstracts: fileURLToPath\(new URL\("\.\/app\/assets\/scss\/ms-front-kit\/abstracts"/);
+  assert.doesNotMatch(doc, /@include ms\.|ms\.rem\(/);
   assert.doesNotMatch(doc, /\{\{/);
   assert.match(await readFile(path.join(root, 'AGENTS.md'), 'utf8'), /docs\/conventions\/ms-front-kit.md/);
 });
@@ -78,7 +90,12 @@ test('uses Vue configuration and customized paths', async t => {
   const doc = await readFile(conventions(root), 'utf8');
   assert.match(doc, /\*\*vue\*\*/);
   assert.match(doc, /src\/ui/);
+  assert.match(doc, /src\/ui\/Helper\/Grid.vue/);
   assert.match(doc, /src\/composables/);
+  await run(['add', 'component', 'Home/Hero/BackButton'], root);
+  const component = await readFile(path.join(root, 'src/ui/Home/Hero/BackButton.vue'), 'utf8');
+  assert.equal(doc.match(/```vue\n([\s\S]*?)\n```/)[1], component.trimEnd());
+  assert.match(component, /\/\/ @use "abstracts" as \*;/);
 });
 
 test('refuses linked instruction files without changing their target', async t => {

@@ -19,7 +19,8 @@ Run from the project root:
   ms-front-kit add composable useResize|useDevice
 
 Creates project-owned files; preserves customized files.
-add styles also updates the Nuxt CSS array or Vue entry import.
+add styles also registers global CSS, configures the abstracts alias,
+and installs a development-only Helper/Grid.vue overlay in the app shell.
 React and Astro are not implemented yet.`;
 
 async function loadConfig(root) {

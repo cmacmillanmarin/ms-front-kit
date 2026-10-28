@@ -31,6 +31,8 @@
 </template>
 
 <style lang="scss">
+// @use "abstracts" as *; // Requires running `ms-front-kit add styles` first.
+
 .{{bemBlock}} {
   display: block;
 }

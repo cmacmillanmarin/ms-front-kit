@@ -31,7 +31,12 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["grid"],
-      "properties": { "grid": { "type": "boolean" } }
+      "properties": {
+        "grid": {
+          "type": "boolean",
+          "description": "Installation marker for the SCSS grid foundation. add styles also installs a development overlay helper; this flag does not control its visibility."
+        }
+      }
     }
   }
 }
