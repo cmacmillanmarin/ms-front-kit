@@ -3,7 +3,6 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import path from 'node:path';
 import { nuxtLayout } from './nuxt-layout.js';
-import { excludeLocalConfig } from './local-config.js';
 
 const execute = promisify(execFile);
 async function npmInstall(root) {
@@ -12,6 +11,11 @@ async function npmInstall(root) {
   } catch (error) {
     throw new Error(`Created configuration and plugin, but GSAP installation failed. Review package.json and the lockfile, then run npm install gsap. ${error.stderr || error.message}`);
   }
+}
+
+async function exists(file) {
+  try { await lstat(file); return true; }
+  catch (error) { if (error.code === 'ENOENT') return false; throw error; }
 }
 
 async function assertAbsent(file) {
@@ -36,11 +40,15 @@ export async function initialize(root, framework, safeDirectory, { install = tru
   let pluginDirectory;
   let plugin;
   let pluginPath;
+  let existingPlugin = false;
   if (framework === 'nuxt') {
     const layout = await nuxtLayout(root);
     config.paths = layout.paths;
     pluginPath = layout.pluginPath;
-    if (install) {
+    // Projects set up before the config was shared, or with it left uncommitted,
+    // have the plugin but no config. Keep the plugin and its dependency.
+    existingPlugin = await exists(path.join(root, pluginPath));
+    if (install && !existingPlugin) {
       const pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
       if (pkg.packageManager && !pkg.packageManager.startsWith('npm@')) throw new Error('Automatic installation currently uses npm. Use --no-install and your project package manager instead.');
       for (const name of ['pnpm-lock.yaml', 'yarn.lock', 'bun.lock', 'bun.lockb']) {
@@ -49,15 +57,19 @@ export async function initialize(root, framework, safeDirectory, { install = tru
         throw new Error('A non-npm lockfile exists. Use --no-install and your project package manager instead.');
       }
     }
-    await assertAbsent(path.join(root, pluginPath));
-    plugin = await readFile(new URL('../../templates/nuxt/plugins/ms-front-kit.client.ts.tpl', import.meta.url), 'utf8');
+    if (!existingPlugin) plugin = await readFile(new URL('../../templates/nuxt/plugins/ms-front-kit.client.ts.tpl', import.meta.url), 'utf8');
   }
-  const exclusion = await excludeLocalConfig(root);
+  // Record styles already installed elsewhere; add styles sets this marker after installing them.
+  config.styles.grid = await exists(path.join(root, config.paths.styles, 'ms-front-kit/abstracts/_grid.scss'));
   if (plugin) pluginDirectory = await safeDirectory(root, path.posix.dirname(pluginPath));
   await writeFile(configFile, `${JSON.stringify(config, null, 2)}\n`, { flag: 'wx' });
   if (plugin) {
     await writeFile(path.join(pluginDirectory, 'ms-front-kit.client.ts'), plugin, { flag: 'wx' });
     if (install) await installDependencies(root);
   }
-  return `Created ms-front-kit.json.${plugin ? ` Created ${pluginPath}. ${install ? 'Installed GSAP with npm.' : 'Dependency installation skipped; install gsap with your project package manager.'}` : ''} Review paths before generating files. Styles and conventions are separate commands.${exclusion}`;
+  const pluginResult = plugin
+    ? ` Created ${pluginPath}. ${install ? 'Installed GSAP with npm.' : 'Dependency installation skipped; install gsap with your project package manager.'}`
+    : existingPlugin ? ` Kept existing ${pluginPath}; dependency installation skipped.` : '';
+  const stylesResult = config.styles.grid ? ' Found installed styles; set styles.grid to true.' : '';
+  return `Created ms-front-kit.json.${pluginResult}${stylesResult} Review paths before generating files. Commit ms-front-kit.json with the project. Styles and conventions are separate commands.`;
 }
