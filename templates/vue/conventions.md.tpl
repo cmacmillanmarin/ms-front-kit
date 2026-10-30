@@ -7,11 +7,9 @@ precedence. If instructions conflict, explain the conflict before proceeding.
 
 ## Initialization and optional font callbacks
 
-`ms-front-kit.json` is personal configuration. Init excludes it through Git's
-local `info/exclude`, not the shared `.gitignore`. Keep generated application
-source tracked. Without Git, init warns that the config is not excluded; add
-the local exclusion once Git is initialized. Already tracked files are not
-untracked automatically.
+`ms-front-kit.json` is shared project configuration; keep it tracked with the
+generated application source. If it is missing from a project already set up,
+init recreates only the config, keeping the existing plugin and installed styles.
 
 `ms-front-kit init --framework nuxt` creates configuration and
 `app/plugins/ms-front-kit.client.ts`, then runs `npm install gsap` to update the

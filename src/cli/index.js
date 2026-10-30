@@ -26,7 +26,13 @@ and installs a development-only Helper/Grid.vue overlay in the app shell.
 React and Astro are not implemented yet.`;
 
 async function loadConfig(root) {
-  const config = JSON.parse(await readFile(path.join(root, 'ms-front-kit.json'), 'utf8'));
+  let source;
+  try { source = await readFile(path.join(root, 'ms-front-kit.json'), 'utf8'); }
+  catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    throw new Error('No ms-front-kit.json in this directory. Run ms-front-kit init --framework nuxt|vue from the project root and commit the result. Init preserves files already generated in the project.');
+  }
+  const config = JSON.parse(source);
   if (config.version !== 1 || !['vue', 'nuxt'].includes(config.framework)) {
     throw new Error('Expected configuration version 1 and framework vue or nuxt.');
   }

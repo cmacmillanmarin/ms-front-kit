@@ -46,14 +46,39 @@ test('no-install creates a plugin without changing package.json', async t => {
   await assert.rejects(run(['init', '--framework', 'nuxt', '--no-install'], root), { code: 'EEXIST' });
 });
 
-test('an existing plugin is preserved without creating configuration', async t => {
+test('an existing plugin is preserved while recreating missing configuration', async t => {
   const root = await project(t);
   await directory(root, 'app/plugins');
   const file = path.join(root, 'app/plugins/ms-front-kit.client.ts');
   await writeFile(file, 'custom plugin');
+  const before = await readFile(path.join(root, 'package.json'), 'utf8');
+  let calls = 0;
+  const result = await initialize(root, 'nuxt', directory, { installDependencies: async () => { calls++; } });
+  assert.equal(calls, 0);
+  assert.match(result, /Kept existing app\/plugins\/ms-front-kit.client.ts/);
+  assert.equal(await readFile(file, 'utf8'), 'custom plugin');
+  assert.equal(await readFile(path.join(root, 'package.json'), 'utf8'), before);
+  const config = JSON.parse(await readFile(path.join(root, 'ms-front-kit.json'), 'utf8'));
+  assert.equal(config.framework, 'nuxt');
+  assert.equal(config.styles.grid, false);
   await assert.rejects(run(['init', '--framework', 'nuxt', '--no-install'], root), { code: 'EEXIST' });
   assert.equal(await readFile(file, 'utf8'), 'custom plugin');
-  await assert.rejects(readFile(path.join(root, 'ms-front-kit.json')), { code: 'ENOENT' });
+});
+
+test('recreated configuration records styles installed on another machine', async t => {
+  const root = await project(t);
+  await directory(root, 'app/assets/scss/ms-front-kit/abstracts');
+  await writeFile(path.join(root, 'app/assets/scss/ms-front-kit/abstracts/_grid.scss'), '// customized');
+  const result = await run(['init', '--framework', 'nuxt', '--no-install'], root);
+  assert.match(result, /Found installed styles/);
+  const config = JSON.parse(await readFile(path.join(root, 'ms-front-kit.json'), 'utf8'));
+  assert.equal(config.styles.grid, true);
+  assert.match(await run(['add', 'component', 'Home/Hero'], root), /app\/components\/Home\/Hero.vue/);
+});
+
+test('missing configuration explains how to recreate it', async t => {
+  const root = await project(t);
+  await assert.rejects(run(['add', 'component', 'Card'], root), /No ms-front-kit.json.*init --framework/);
 });
 
 for (const [label, source, base, assets, plugins] of [
@@ -105,15 +130,16 @@ for (const source of [
   });
 }
 
-test('custom plugin is preserved before creating configuration', async t => {
+test('custom plugin location is preserved while creating configuration', async t => {
   const root = await project(t);
   await writeFile(path.join(root, 'nuxt.config.js'), 'export default defineNuxtConfig({ srcDir: "src", dir: { plugins: "integrations" } })');
   await directory(root, 'src/integrations');
   const file = path.join(root, 'src/integrations/ms-front-kit.client.ts');
   await writeFile(file, 'custom plugin');
-  await assert.rejects(run(['init', '--framework', 'nuxt', '--no-install'], root), { code: 'EEXIST' });
+  assert.match(await run(['init', '--framework', 'nuxt', '--no-install'], root), /Kept existing src\/integrations/);
   assert.equal(await readFile(file, 'utf8'), 'custom plugin');
-  await assert.rejects(readFile(path.join(root, 'ms-front-kit.json')), { code: 'ENOENT' });
+  const config = JSON.parse(await readFile(path.join(root, 'ms-front-kit.json'), 'utf8'));
+  assert.equal(config.paths.components, 'src/components');
 });
 
 test('Vue init stays config-only', async t => {
