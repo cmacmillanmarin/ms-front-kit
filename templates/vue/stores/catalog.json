@@ -1,0 +1,6 @@
+{
+  "useScrollStore": {
+    "template": "useScrollStore.ts.tpl",
+    "packages": { "nuxt": ["pinia", "@pinia/nuxt"], "vue": ["pinia"] }
+  }
+}

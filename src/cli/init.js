@@ -1,14 +1,12 @@
 import { readFile, writeFile, lstat } from 'node:fs/promises';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import path from 'node:path';
 import { nuxtLayout } from './nuxt-layout.js';
 import { excludeLocalConfig } from './local-config.js';
+import { assertNpm, npmInstall as installPackages } from './packages.js';
 
-const execute = promisify(execFile);
 async function npmInstall(root) {
   try {
-    await execute('npm', ['install', 'gsap'], { cwd: root, timeout: 180000, maxBuffer: 4 * 1024 * 1024 });
+    await installPackages(root, ['gsap']);
   } catch (error) {
     throw new Error(`Created configuration and plugin, but GSAP installation failed. Review package.json and the lockfile, then run npm install gsap. ${error.stderr || error.message}`);
   }
@@ -27,7 +25,7 @@ export async function initialize(root, framework, safeDirectory, { install = tru
   const config = {
     version: 1,
     framework,
-    paths: { components: `${base}/components`, composables: `${base}/composables`, styles: `${base}/assets/scss` },
+    paths: { components: `${base}/components`, composables: `${base}/composables`, store: `${base}/store`, styles: `${base}/assets/scss` },
     components: { naming: 'PascalCase', style: 'scss', bem: true },
     styles: { grid: false }
   };
@@ -40,15 +38,7 @@ export async function initialize(root, framework, safeDirectory, { install = tru
     const layout = await nuxtLayout(root);
     config.paths = layout.paths;
     pluginPath = layout.pluginPath;
-    if (install) {
-      const pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
-      if (pkg.packageManager && !pkg.packageManager.startsWith('npm@')) throw new Error('Automatic installation currently uses npm. Use --no-install and your project package manager instead.');
-      for (const name of ['pnpm-lock.yaml', 'yarn.lock', 'bun.lock', 'bun.lockb']) {
-        try { await lstat(path.join(root, name)); }
-        catch (error) { if (error.code === 'ENOENT') continue; throw error; }
-        throw new Error('A non-npm lockfile exists. Use --no-install and your project package manager instead.');
-      }
-    }
+    if (install) await assertNpm(root);
     await assertAbsent(path.join(root, pluginPath));
     plugin = await readFile(new URL('../../templates/nuxt/plugins/ms-front-kit.client.ts.tpl', import.meta.url), 'utf8');
   }

@@ -127,8 +127,8 @@ This example is rendered directly from the same template as the generator:
 - Put runtime CSS custom properties in `base/_tokens.scss`; build-time defaults
   and maps live in `abstracts/_variables.scss`. Add font declarations only in
   `base/_fonts.scss`, loaded globally once. Each typography token explicitly
-  selects the registered example font with a sans-serif fallback. Root tokens contain example primary
-  and secondary colors plus layout tokens. The maximum is `rem(1920px)`
+  selects the registered example font with a sans-serif fallback. Root tokens contain `--vh`
+  (stable `100svh` viewport height), example primary and secondary colors plus layout tokens. The maximum is `rem(1920px)`
   (120rem with the default design reference); customize per project. Font defaults stay in Sass.
 - In components, import Sass tools only when needed using `@use "abstracts" as *;`
   at the start of the style block. The shared Vue/Nuxt generator includes it
@@ -405,13 +405,19 @@ Components that add animation or smooth scrolling must consider
 
 ## Composables and framework behavior
 
-- Project composables belong in `{{composablesPath}}`.
-- Available commands: `ms-front-kit add composable useResize` and
-  `ms-front-kit add composable useDevice`. useDevice also adds useResize when
-  missing. Existing files, including customized dependencies, are skipped with
-  a message and are never overwritten.
-- Nuxt templates retain auto-imports. Vue output adds explicit Vue imports and
-  a relative useResize import.
+- Project composables belong in `{{composablesPath}}`; Pinia stores belong in
+  `{{storePath}}`.
+- Available commands: `ms-front-kit add composable useResize`,
+  `useDevice`, `useRaf`, and `useScroll`. Dependencies are added when missing
+  (useDevice adds useResize). Existing files, including customized dependencies,
+  are skipped with a message and are never overwritten.
+- Vue output adds explicit Vue and vue-router imports and relative imports of
+  the composables it uses. Nuxt output relies on auto-imports only where
+  nuxt.config provably enables them: with `imports.scan: false` or a custom
+  composables path, composables import each other relatively; with
+  `imports.autoImport: false` or a config that cannot be read statically, Vue
+  and router APIs also come from `#imports`. Keep explicit imports when editing
+  these files.
 - useResize shares viewport refs and one resize/visualViewport listener pair
   between mounted client consumers. SSR calls get independent state. The final
   consumer's unmount removes listeners and cancels pending debounce work.
@@ -442,6 +448,37 @@ Components that add animation or smooth scrolling must consider
   an older style installation differs, merge the new device module and main
   import deliberately; don't overwrite project customizations.
 - Do not assign body::after to unrelated visual content when useDevice is used.
+- Register per-frame work through useRaf's addTicker/killTicker instead of
+  starting separate requestAnimationFrame loops. Tickers receive `(time, delta)`;
+  use delta for frame-rate independent motion. The loop stops when empty.
+- `{{componentsPath}}/Scroll/README.md` (created with Scroll) lists the data attributes,
+  their values and modes, and the store API; read it before using scroll features.
+- useScroll is mounted once through `<Scroll>` in the app shell. Do not call
+  useScroll, useScrollVirtual, or useScrollNative elsewhere; control scrolling
+  through useScrollStore: `scrollTo(target, { immediate, align })` (id, element,
+  or number), `disable()`, `update()`, `reset()`, and `addRenderCallback()`.
+- The Scroll root is a `var(--vh)` (100svh) scroll container and the window never
+  scrolls. Do not use window.scrollY, window.scrollTo, scroll listeners on
+  window, or the router's scrollBehavior for page scrolling; use the store and
+  render callbacks. Keep the root height fixed so mobile toolbars stay put.
+  Use `var(--vh)` instead of `100vh` for full-viewport sections.
+- In virtual mode, mark large sections with `data-scroll` rather than many small
+  elements: each moving element is a compositor layer, and off-screen sections
+  skip writes. Without marked elements the whole content moves, which turns fixed
+  descendants into content-relative ones; keep fixed UI outside Scroll.
+- In virtual mode Scroll renders its own macOS-style overlay scrollbar
+  (`scrollbar` prop, default true); native mode keeps the browser's bar. Do not
+  add another custom scrollbar or hide it with `::-webkit-scrollbar`; restyle
+  `.scroll__bar` and `.scroll__thumb` in Scroll/Index.vue instead.
+- Virtual mode supports the browser's find in page: while the find bar is in
+  use, the root scrolls natively (`data-scroll-find`) and sections stay in
+  place. Do not block Cmd/Ctrl+F, Cmd/Ctrl+G, or F3. Do not restyle the root's
+  overflow, which the scroll engine owns.
+- Read scroll values per frame inside render callbacks, not through watchers or
+  template bindings on `store.data`, which changes every animated frame.
+- Call the store's `update()` after layout changes ResizeObserver cannot see
+  (for example, transforms or late class toggles), and `reset()` after page
+  transitions finish. Mark scrollable modals with `data-scroll-lock-allow`.
 - Respect the project's actual auto-import setup. Plain Vue generally needs
   explicit imports; Nuxt auto-import behavior depends on its configuration.
 - In server-rendered code, do not access browser-only APIs during server setup.

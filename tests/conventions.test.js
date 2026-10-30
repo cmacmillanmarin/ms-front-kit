@@ -90,6 +90,7 @@ test('uses Vue configuration and customized paths', async t => {
   const file = path.join(root, 'ms-front-kit.json');
   const config = JSON.parse(await readFile(file, 'utf8'));
   config.paths.components = 'src/ui';
+  config.paths.store = 'src/state';
   await writeFile(file, JSON.stringify(config));
   await run(['add', 'conventions'], root);
   const doc = await readFile(conventions(root), 'utf8');
@@ -97,6 +98,7 @@ test('uses Vue configuration and customized paths', async t => {
   assert.match(doc, /src\/ui/);
   assert.match(doc, /src\/ui\/Helper\/Grid.vue/);
   assert.match(doc, /src\/composables/);
+  assert.match(doc, /Pinia stores belong in\s+`src\/state`/);
   await run(['add', 'component', 'Home/Hero/BackButton'], root);
   const component = await readFile(path.join(root, 'src/ui/Home/Hero/BackButton.vue'), 'utf8');
   assert.equal(doc.match(/```vue\n([\s\S]*?)\n```/)[1], component.trimEnd());

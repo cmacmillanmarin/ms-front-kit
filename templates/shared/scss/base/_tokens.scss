@@ -1,6 +1,9 @@
 @use "../abstracts" as ms;
 
 :root {
+  // Stable viewport height: small viewport (browser toolbars expanded).
+  --vh: 100svh;
+
   // Example palette only. Replace with each project's colors.
   --color-primary: #000;
   --color-secondary: #666;

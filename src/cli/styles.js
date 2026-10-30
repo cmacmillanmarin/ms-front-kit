@@ -4,12 +4,12 @@ import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { planGridHelper } from './grid-helper.js';
 
-async function readOptional(file) {
+export async function readOptional(file) {
   try { return await readFile(file, 'utf8'); }
   catch (error) { if (error.code === 'ENOENT') return null; throw error; }
 }
 
-async function checkPath(root, relative) {
+export async function checkPath(root, relative) {
   if (path.isAbsolute(relative) || relative.split(/[\\/]/).includes('..')) throw new Error('Expected a project-relative path.');
   let current = root;
   for (const part of relative.split(/[\\/]/)) {

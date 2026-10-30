@@ -45,8 +45,9 @@ ms-front-kit init --framework vue
 Choose one framework, not both. Nuxt init installs GSAP and creates its client
 plugin; Vue init creates only the configuration. Before continuing, review
 ms-front-kit.json and adjust paths for your project. For example, Nuxt defaults
-to app/components, app/composables, and app/assets/scss; Vue defaults to their
-src/ equivalents. Do not rerun init to change paths: edit the configuration.
+to app/components, app/composables, app/store, and app/assets/scss; Vue defaults
+to their src/ equivalents. Configurations without `paths.store` use a store
+directory beside composables. Do not rerun init to change paths: edit the configuration.
 
 ### 2. Add the foundation and AI conventions
 
@@ -140,7 +141,7 @@ examples; the CLI includes those only as scaffolding reminders.
 | --- | --- |
 | init | Refuses existing config/plugin files; not an update command. |
 | add component | Refuses an existing component; use a new name or edit it manually. |
-| add composable | Skips existing files and dependencies with a message. |
+| add composable | Skips existing files and dependencies with a message. useScroll keeps an existing Scroll mount and Pinia module registration. |
 | add styles | Skips identical files and avoids duplicate entries; differing styles/fonts stop installation before edits. Creates a dev grid helper and app mount, preserving existing helpers and mounts. |
 | add conventions | Leaves matching output alone; differing conventions require manual comparison; existing AGENTS.md is preserved. |
 
@@ -305,7 +306,8 @@ already converts them. Preserve unitless line-height and zero, and meaningful
 percentage/intrinsic/viewport sizing; fixed decorative hairlines may remain px.
 Avoid fixed heights that clip enlarged text. Keep the browser root size unchanged.
 Typography-map font sizes
-are written in px and converted by type(). Root CSS tokens contain example
+are written in px and converted by type(). Root CSS tokens contain `--vh`
+(`100svh`, the stable viewport height used by the Scroll component), example
 `--color-primary`, `--color-secondary`, and layout settings, not font settings.
 The layout maximum is rem(1920px), or 120rem at the default design reference. Each type
 token includes its own family, size, and line height directly, without shared
@@ -378,7 +380,8 @@ Sass usage, and customization guidance. Sass compilation tests run with `npm tes
   reduce collisions, but are not a guarantee against all CSS collisions.
 - Existing files are never overwritten. Generated code belongs to its project.
 - Grid styles are installed as part of the SCSS foundation, not separately.
-- Available composables: useResize and useDevice. Flex grid mixins are included.
+- Available composables: useResize, useDevice, useRaf, and useScroll (with its
+  lock/native/virtual parts and Pinia store). Flex grid mixins are included.
   Layout component templates, React, and Astro are not implemented.
 - No installed-composable inventory or automatic source updates.
 
@@ -479,8 +482,15 @@ ms-front-kit add composable useDevice
 
 Files go into the configured composables directory. Adding useDevice also adds
 useResize when missing. Existing files are skipped with a message, including
-customized dependencies; no files are overwritten. Nuxt output uses auto-imports.
-Vue output prepends the necessary explicit imports.
+customized dependencies; no files are overwritten. Vue output prepends the
+necessary explicit imports. Nuxt output uses auto-imports only where the
+statically read nuxt.config enables them for the configured directory:
+
+| Nuxt setup | Added imports |
+| --- | --- |
+| Default config and composables path | None |
+| `imports: { scan: false }` or a custom `paths.composables` | Relative imports between composables |
+| `imports: { autoImport: false }`, or an `imports` value / config that cannot be read statically | Vue and router APIs from `#imports`, plus relative composable imports |
 
 useResize shares refs and a listener pair across mounted client consumers, with
 separate state per SSR call. Measurements update immediately; onResize toggles
@@ -501,8 +511,122 @@ and phone/tablet classifications are best-effort hints; prefer feature detection
 Image support helpers are SSR-safe and have bounded browser load checks.
 Adding a composable does not install styles automatically.
 
+useRaf runs one shared requestAnimationFrame loop for every mounted consumer.
+Tickers receive `(time, delta)` with delta clamped to 100ms; the loop stops while
+no ticker is registered, and unmounting removes the tickers that component added.
+
+### Custom scroll
+
+```sh
+ms-front-kit add composable useScroll
+```
+
+This creates useResize, useDevice, useRaf, useScrollLock, useScrollNative,
+useScrollVirtual, useScrollBar, and useScroll in the composables directory, the Pinia store
+`<paths.store>/useScrollStore.ts`, `<paths.components>/Scroll/Index.vue`, and
+`<paths.components>/Scroll/README.md`, a project-owned quick reference for props, data
+attributes, the store API, and the scrollbar.
+Generated imports between them are relative, so custom paths work without
+auto-import configuration. It then:
+
+- **Nuxt:** adds `"@pinia/nuxt"` to a literal `modules` array in nuxt.config and
+  installs `pinia @pinia/nuxt` with npm when missing from package.json.
+- **Vue:** installs `pinia` and prints how to register `createPinia()` when the
+  entry does not already do it. useScroll imports `useRoute` from vue-router;
+  install and register it if the project has none.
+- Wraps the app shell's single `<NuxtLayout>` (or `<NuxtPage>`) / `<RouterView>`
+  with `<Scroll>` using an explicit import. Existing mounts are preserved;
+  templates that cannot be safely merged are left untouched with a manual snippet.
+- When `add styles` already ran, adds `--vh: 100svh;` at the start of `:root` in
+  `ms-front-kit/base/_tokens.scss` unless a `--vh` is already defined (an existing
+  value is kept). Without installed styles, Scroll falls back to `100svh`.
+
+Use `--no-install` to skip npm and install with your package manager; automatic
+installation uses the same npm-only checks as init. Repeat runs skip existing
+files, registrations, and mounts.
+
+`<Scroll mode="auto|virtual|native">` defaults to `auto`: virtual scroll
+without touch support, native scroll with it. The Scroll root is always
+`var(--vh, 100svh)` tall and is the only scroll container: the window never scrolls, so
+mobile browser toolbars (address and tab bars) do not collapse or resize the
+viewport. Native mode scrolls the root itself (`overflow-y: auto`, with
+`overscroll-behavior: contain`); virtual mode clips it and translates
+`[data-scroll]` sections; when
+no element is marked, the whole content moves as one block (fixed descendants then
+become relative to it). Marking large sections lets off-screen ones skip writes.
+Supported attributes: `data-scroll`, `data-scroll-continuous`,
+`data-scroll-sticky` (CSS `top` and optional `data-scroll-sticky-bottom`),
+`data-scroll-fixed-from`/`-to`, `data-scroll-set-progress` (writes
+`data-scroll-progress` and `data-scroll-current` in both modes),
+`data-scroll-set-position` (content-relative coordinates),
+`data-scroll-target-offset`, and `data-tab-fixed`. The content element gets `data-scroll-mode="virtual|native"` for styling.
+
+In virtual mode Scroll also renders a macOS-style overlay scrollbar
+(`scrollbar` prop, default `true`; `<Scroll :scrollbar="false">` turns it off).
+Native mode always keeps the browser's own bar. Like the native one, the thumb
+size and position follow the viewport and content height; it appears while
+scrolling and fades after one second of rest, widens with a track while hovered
+or held, can be dragged, pages toward the pointer on track clicks (repeating
+while held until the thumb reaches the pointer), and jumps to the clicked spot
+with Option/Alt-click. Wheel input over it scrolls the page. It is hidden when
+nothing overflows and removed while scrolling is disabled. As on macOS, the
+thumb turns light over dark backgrounds: it reads the opaque `background-color`
+behind the thumb when the bar appears, on hover, and at most every 200ms while
+scrolling (`data-background="dark|light"` on `.scroll__bar`). Backgrounds it
+cannot read (images, video, non-sRGB colors) fall back to `light-dark()` and
+the page's `color-scheme`, and the thumb's contrasting edge keeps it visible on
+any content. Restyle it through the `--scroll-thumb`, `--scroll-thumb-edge`,
+`--scroll-track`, and `--scroll-track-border` properties of `.scroll__bar` in
+the generated component.
+
+Control scrolling through the store:
+
+```ts
+const scroll = useScrollStore();
+scroll.scrollTo("#about");            // id, element, or number
+scroll.scrollTo(0, { immediate: true });
+scroll.disable(true);                 // also locks wheel, touch, and keys
+scroll.update();                      // re-measure after layout changes
+const stop = scroll.addRenderCallback(data => { /* per-frame work */ });
+```
+
+`store.data` holds `{ current, currentVertical, speed, direction, bounding,
+inTarget }`, replaced once per animated frame. Prefer render callbacks for
+per-frame work over watchers or template bindings. While disabled, elements with
+`data-scroll-lock-allow` (modals, menus) keep scrolling internally without
+chaining to the page.
+
+Content size changes are measured through ResizeObserver, coalesced to one frame.
+Route path changes reset to the top after the next tick; with page transitions,
+call `reset()` or `update()` once the new page has entered. Route hashes are
+handled by Scroll in both modes, because the router's scrollBehavior only
+scrolls the window. Code that reads `window.scrollY` or calls `window.scrollTo`
+must use the store instead.
+Virtual mode supports the browser's find in page (Cmd/Ctrl+F). It switches
+to a search mode when it detects the find shortcuts (Cmd/Ctrl+F, Cmd/Ctrl+G,
+F3), when the window loses focus to the find bar, or when an animation stops
+while the page is unfocused. In search mode the root becomes a real scroll
+container (`overflow-y: auto` with its native bar hidden, `data-scroll-find` on
+the root), the current position moves to its `scrollTop`, and every section
+stays in place so any match is reachable. It looks the same as virtual mode.
+The first wheel, touch, handled key, focus change, `scrollTo()`, `reset()`, or
+`disable(true)` returns to virtual mode from the position the search left. A
+container with `overflow: hidden` is not enough, because browsers only scroll
+real scroll containers to reach a match.
+
+Limitations: while the find bar is in use, scrolling is native and has no
+easing. If you search while a scroll animation is still running, search mode
+starts only once the animation ends. While scrolling is disabled, find in page
+does not move the page.
+
+Frame loops sleep at rest, easing is frame-rate independent, and
+`prefers-reduced-motion: reduce` disables easing.
+
 To grow the catalog, add a template in templates/vue/composables and register its
-filename, dependencies, and explicit Vue imports in catalog.json. Keep template
+filename, dependencies, and the imports it uses in catalog.json (`vue`, `router`,
+and `composables`, which must also be dependencies). Entries can name
+a store from templates/vue/stores/catalog.json (with per-framework packages) and,
+for the requested composable, a component template. Keep template
 logic separate from installation behavior. Tests cover dependencies and skip
 behavior. Existing installations are not upgraded automatically.
 
@@ -514,6 +638,8 @@ schemas/                          project config schema
  templates/                       (paths below are relative to templates/)
   vue/components/basic/           shared Vue/Nuxt basic template
   vue/composables/                 composable templates and dependency catalog
+  vue/stores/                     Pinia store templates and their packages
+  vue/components/scroll/          Scroll component and usage reference templates
   nuxt/composables/                future Nuxt-specific composables
   shared/scss/                    framework-independent SCSS foundation
  tests/                           automated generation tests

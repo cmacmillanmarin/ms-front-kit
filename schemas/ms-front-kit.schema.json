@@ -14,6 +14,11 @@
       "properties": {
         "components": { "type": "string", "minLength": 1 },
         "composables": { "type": "string", "minLength": 1 },
+        "store": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Pinia store directory. Optional: defaults to a store directory beside composables."
+        },
         "styles": { "type": "string", "minLength": 1 }
       }
     },

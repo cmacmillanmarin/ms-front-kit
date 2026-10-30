@@ -54,6 +54,45 @@ test('Vue output adds explicit imports and respects custom output paths', async 
   assert.ok(device.endsWith(template));
 });
 
+test('Nuxt output imports explicitly what its config does not auto-import', async t => {
+  const cases = [
+    // [nuxt.config, custom composables path, Vue APIs from #imports, composables imported]
+    ['export default defineNuxtConfig({});\n', null, false, false],
+    ['export default defineNuxtConfig({ imports: { scan: true } });\n', null, false, false],
+    ['export default defineNuxtConfig({ imports: { scan: false } });\n', null, false, true],
+    ['export default defineNuxtConfig({});\n', 'app/shared/composables', false, true],
+    ['export default defineNuxtConfig({ imports: { autoImport: false } });\n', null, true, true],
+    ['const imports = { autoImport: false };\nexport default defineNuxtConfig({ imports });\n', null, true, true],
+    ['export default defineNuxtConfig({ imports: { ...shared } });\n', null, true, true],
+    ['export default defineNuxtConfig({ extends: ["./base"] });\n', null, true, true]
+  ];
+  for (const [nuxtConfig, composables, apis, imported] of cases) {
+    const root = await project(t);
+    await writeFile(path.join(root, 'nuxt.config.ts'), nuxtConfig);
+    if (composables) {
+      const configPath = path.join(root, 'ms-front-kit.json');
+      const config = JSON.parse(await readFile(configPath, 'utf8'));
+      config.paths.composables = composables;
+      await writeFile(configPath, JSON.stringify(config));
+    }
+    const directory = composables || 'app/composables';
+    const message = await run(['add', 'composable', 'useScroll', '--no-install'], root);
+    const scroll = await readFile(path.join(root, directory, 'useScroll.ts'), 'utf8');
+    const virtual = await readFile(path.join(root, directory, 'useScrollVirtual.ts'), 'utf8');
+    const resize = await readFile(path.join(root, directory, 'useResize.ts'), 'utf8');
+    const template = await readFile(new URL('../templates/vue/composables/useScroll.ts.tpl', import.meta.url), 'utf8');
+    assert.ok(scroll.endsWith(template.slice(template.indexOf('{{storeDirectory}}') + '{{storeDirectory}}'.length)), nuxtConfig); // After the rendered store import.
+    assert.match(scroll, /from '\.\.\/store\/useScrollStore'|from '\.\.\/\.\.\/store\/useScrollStore'/);
+    assert.doesNotMatch(scroll, /from 'vue(-router)?'/);
+    assert.equal(/^import \{ nextTick, onBeforeUnmount, watch, useRoute \} from '#imports';$/m.test(scroll), apis, nuxtConfig);
+    assert.equal(/^import \{ ref, onMounted, onUnmounted \} from '#imports';$/m.test(resize), apis, nuxtConfig);
+    assert.equal(/^import useRaf from '\.\/useRaf';$/m.test(virtual), imported, nuxtConfig);
+    assert.equal(/^import useScrollVirtual from '\.\/useScrollVirtual';$/m.test(scroll), imported, nuxtConfig);
+    assert.doesNotMatch(scroll, /import useScrollBar/); // Only the Scroll component uses it.
+    assert.equal(/each other explicitly/.test(message), imported, nuxtConfig);
+  }
+});
+
 test('unknown composables and traversal are rejected', async t => {
   const root = await project(t);
   for (const name of ['useUnknown', '../useDevice', 'useDevice.ts']) {

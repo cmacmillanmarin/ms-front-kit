@@ -74,6 +74,7 @@ for (const [label, source, base, assets, plugins] of [
     assert.deepEqual(config.paths, {
       components: path.posix.join(base, 'components'),
       composables: path.posix.join(base, 'composables'),
+      store: path.posix.join(base, 'store'),
       styles: path.posix.join(base, assets, 'scss')
     });
     assert.equal(await readFile(path.join(root, 'nuxt.config.ts'), 'utf8'), source);

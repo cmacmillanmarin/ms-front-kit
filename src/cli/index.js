@@ -16,9 +16,11 @@ Run from the project root:
   ms-front-kit add component Home/Hero/BackButton
   ms-front-kit add conventions
   ms-front-kit add styles
-  ms-front-kit add composable useResize|useDevice
+  ms-front-kit add composable useResize|useDevice|useRaf|useScroll [--no-install]
 
 Creates project-owned files; preserves customized files.
+add composable useScroll also creates the Pinia scroll store and Scroll
+component, mounts it in the app shell, and installs Pinia with npm.
 add styles also registers global CSS, configures the abstracts alias,
 and installs a development-only Helper/Grid.vue overlay in the app shell.
 React and Astro are not implemented yet.`;
@@ -34,7 +36,11 @@ async function loadConfig(root) {
   if (typeof config.styles?.grid !== 'boolean') {
     throw new Error('styles.grid must be a boolean. add styles enables the grid foundation.');
   }
-  for (const key of ['components', 'composables', 'styles']) {
+  // Configurations created before stores were supported keep them beside composables.
+  if (config.paths && config.paths.store === undefined && typeof config.paths.composables === 'string') {
+    config.paths.store = path.posix.join(path.posix.dirname(config.paths.composables), 'store');
+  }
+  for (const key of ['components', 'composables', 'store', 'styles']) {
     const value = config.paths?.[key];
     if (typeof value !== 'string' || !value || path.isAbsolute(value) || value.split(/[\\/]/).includes('..')) {
       throw new Error(`paths.${key} must be a relative path inside the project.`);
@@ -68,8 +74,9 @@ export async function run(args, root = process.cwd()) {
     }
     return initialize(root, args[2], safeDirectory, { install: !args.includes('--no-install') });
   }
-  if (args.length === 3 && args[0] === 'add' && args[1] === 'composable') {
-    return addComposable(root, await loadConfig(root), args[2], safeDirectory);
+  if ([3, 4].includes(args.length) && args[0] === 'add' && args[1] === 'composable') {
+    if (args.length === 4 && args[3] !== '--no-install') throw new Error('Usage: ms-front-kit add composable useScroll [--no-install]');
+    return addComposable(root, await loadConfig(root), args[2], safeDirectory, { install: args.length === 3 });
   }
   if (args.length === 2 && args[0] === 'add' && args[1] === 'styles') {
     return addStyles(root, await loadConfig(root), safeDirectory);

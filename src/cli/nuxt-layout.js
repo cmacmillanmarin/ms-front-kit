@@ -35,6 +35,21 @@ function relative(value, label) {
   return value;
 }
 
+// Auto-import switches from a literal imports object. Anything that is not
+// provably enabled counts as disabled: explicit imports work either way.
+function autoImports(config) {
+  const property = config.get('imports');
+  if (!property) return { apis: true, scan: true };
+  if (!ts.isPropertyAssignment(property) || !ts.isObjectLiteralExpression(property.initializer) ||
+      property.initializer.properties.some(p => ts.isSpreadAssignment(p) || name(p.name) === null)) return { apis: false, scan: false };
+  const enabled = key => {
+    const item = property.initializer.properties.find(p => name(p.name) === key);
+    return !item || (ts.isPropertyAssignment(item) && item.initializer.kind === ts.SyntaxKind.TrueKeyword);
+  };
+  const apis = enabled('autoImport');
+  return { apis, scan: apis && enabled('scan') };
+}
+
 export async function nuxtLayout(root) {
   const configs = [];
   for (const file of ['nuxt.config.ts', 'nuxt.config.js', 'nuxt.config.mjs']) {
@@ -45,6 +60,7 @@ export async function nuxtLayout(root) {
   let sourceDirectory = 'app';
   let assets = 'assets';
   let plugins = 'plugins';
+  let imports = { apis: true, scan: true };
   if (configs.length) {
     const { file, source } = configs[0];
     const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
@@ -60,6 +76,7 @@ export async function nuxtLayout(root) {
       if (config.has(key)) throw new Error(`Nuxt ${key} requires manual layout setup; automatic init cannot determine the effective directories.`);
     }
     sourceDirectory = relative(literal(config, 'srcDir', 'app', 'Nuxt config'), 'Nuxt srcDir');
+    imports = autoImports(config);
     if (config.has('dir')) {
       const property = config.get('dir');
       if (!ts.isPropertyAssignment(property)) throw new Error('Nuxt dir must be a literal object for automatic Nuxt init.');
@@ -70,9 +87,11 @@ export async function nuxtLayout(root) {
   }
   return {
     sourceDirectory,
+    imports,
     paths: {
       components: path.posix.join(sourceDirectory, 'components'),
       composables: path.posix.join(sourceDirectory, 'composables'),
+      store: path.posix.join(sourceDirectory, 'store'),
       styles: path.posix.join(sourceDirectory, assets, 'scss')
     },
     pluginPath: path.posix.join(sourceDirectory, plugins, 'ms-front-kit.client.ts')

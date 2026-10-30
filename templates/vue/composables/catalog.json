@@ -2,11 +2,67 @@
   "useResize": {
     "template": "useResize.ts.tpl",
     "dependencies": [],
-    "vueImports": "import { ref, onMounted, onUnmounted } from 'vue';\n"
+    "imports": {
+      "vue": ["ref", "onMounted", "onUnmounted"]
+    }
   },
   "useDevice": {
     "template": "useDevice.ts.tpl",
     "dependencies": ["useResize"],
-    "vueImports": "import { ref, computed, watch, onMounted, onUnmounted } from 'vue';\nimport useResize from './useResize';\n"
+    "imports": {
+      "vue": ["ref", "computed", "watch", "onMounted", "onUnmounted"],
+      "composables": ["useResize"]
+    }
+  },
+  "useRaf": {
+    "template": "useRaf.ts.tpl",
+    "dependencies": [],
+    "imports": {
+      "vue": ["onUnmounted"]
+    }
+  },
+  "useScrollLock": {
+    "template": "useScrollLock.ts.tpl",
+    "dependencies": [],
+    "imports": {
+      "vue": ["onUnmounted"]
+    }
+  },
+  "useScrollNative": {
+    "template": "useScrollNative.ts.tpl",
+    "dependencies": ["useRaf"],
+    "store": "useScrollStore",
+    "imports": {
+      "vue": ["onBeforeUnmount"],
+      "composables": ["useRaf"]
+    }
+  },
+  "useScrollVirtual": {
+    "template": "useScrollVirtual.ts.tpl",
+    "dependencies": ["useRaf"],
+    "store": "useScrollStore",
+    "imports": {
+      "vue": ["onBeforeUnmount"],
+      "composables": ["useRaf"]
+    }
+  },
+  "useScrollBar": {
+    "template": "useScrollBar.ts.tpl",
+    "dependencies": [],
+    "store": "useScrollStore",
+    "imports": {
+      "vue": ["onBeforeUnmount"]
+    }
+  },
+  "useScroll": {
+    "template": "useScroll.ts.tpl",
+    "dependencies": ["useResize", "useDevice", "useScrollLock", "useScrollNative", "useScrollVirtual", "useScrollBar"],
+    "store": "useScrollStore",
+    "component": { "name": "Scroll", "template": "scroll/Index.vue.tpl", "docs": "scroll/README.md.tpl" },
+    "imports": {
+      "vue": ["nextTick", "onBeforeUnmount", "watch"],
+      "router": ["useRoute"],
+      "composables": ["useDevice", "useResize", "useScrollLock", "useScrollNative", "useScrollVirtual"]
+    }
   }
 }

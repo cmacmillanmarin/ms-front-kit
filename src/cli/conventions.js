@@ -75,6 +75,7 @@ export async function addConventions(root, config, safeDirectory) {
     framework: config.framework,
     componentsPath: config.paths.components,
     composablesPath: config.paths.composables,
+    storePath: config.paths.store,
     stylesPath: config.paths.styles,
     componentExample: component.contents.trimEnd()
   };
