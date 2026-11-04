@@ -23,8 +23,9 @@ manual setup. Review custom component/composable scanning separately. Existing
 config or plugin files are not overwritten. `--no-install` runs no package manager and adds gsap to
 package.json dependencies instead; run a plain install with the project's package
 manager before running the app. `add composable --no-install` does the same for the
-packages it would install, leaving existing entries untouched. Vue init remains
-config-only; do not copy a Nuxt plugin into a plain Vue application.
+packages it would install, except that sass goes to devDependencies, leaving existing
+entries untouched. Vue init remains config-only; do not copy a Nuxt plugin into a
+plain Vue application.
 
 The client plugin prints the studio credit, registers GSAP CustomEase, and defines
 an example named `ms-ease`. GSAP defaults are duration 0.8 seconds and ease
