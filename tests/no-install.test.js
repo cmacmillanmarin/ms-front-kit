@@ -95,6 +95,16 @@ test('existing entries are never changed, including devDependencies and empty ra
   assert.equal(pkg.devDependencies['@pinia/nuxt'], undefined);
 });
 
+for (const source of ['{"dependencies":{"gsap":""}}\n', '{"devDependencies":{"gsap":""}}\n']) {
+  test(`installing and declaring both treat an empty range as declared: ${source.trim()}`, async t => {
+    for (const options of [{ installDependencies: () => assert.fail('gsap is already declared') }, { install: false }]) {
+      const root = await project(t, 'nuxt', source);
+      assert.doesNotMatch(await addComposable(root, config('nuxt'), 'useRaf', safe, options), /Installed |Added /);
+      assert.equal(await readPkg(root), source);
+    }
+  });
+}
+
 test('init reports gsap that is already declared and leaves the file alone', async t => {
   const source = '{"devDependencies":{"gsap":"3.0.0"}}';
   const root = await project(t, 'nuxt', source);

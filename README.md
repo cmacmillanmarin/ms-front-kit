@@ -407,9 +407,9 @@ install`, `yarn`, `bun install`, or `npm install` fetches it:
 
 | Package | Range | Added by |
 | --- | --- | --- |
-| `gsap` | `^3.15.1` | Nuxt `init`, `add composable useRaf`, `add composable useScroll` |
-| `pinia` | `^4.1.0` | `add composable useScroll` |
-| `@pinia/nuxt` | `^1.0.3` | `add composable useScroll` on Nuxt |
+| `gsap` | `^3.15.1` | Nuxt `init`, and `add composable` with `useRaf`, `useScrollNative`, `useScrollVirtual`, or `useScroll` |
+| `pinia` | `^4.1.0` | `add composable` with `useScrollBar`, `useScrollNative`, `useScrollVirtual`, or `useScroll` |
+| `@pinia/nuxt` | `^1.0.3` | The same composables as `pinia`, on Nuxt |
 
 An entry already in `dependencies` or `devDependencies` is never changed.
 `dependencies` is written in the order npm uses, and the file keeps its

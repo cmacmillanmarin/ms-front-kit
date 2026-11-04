@@ -23,7 +23,7 @@ export async function readPackage(root) {
 }
 
 export function missingPackages(pkg, names) {
-  return names.filter(name => !pkg?.dependencies?.[name] && !pkg?.devDependencies?.[name]);
+  return names.filter(name => !Object.hasOwn(pkg?.dependencies ?? {}, name) && !Object.hasOwn(pkg?.devDependencies ?? {}, name));
 }
 
 // Automatic installation is npm-only; other package managers must install manually.
@@ -53,7 +53,7 @@ export async function planPackages(root, names) {
       throw new Error('package.json must be an object whose dependencies and devDependencies are objects; nothing was changed. Fix it and retry.');
     }
   }
-  const add = names.filter(name => !Object.hasOwn(pkg.dependencies ?? {}, name) && !Object.hasOwn(pkg.devDependencies ?? {}, name)).sort(byName);
+  const add = missingPackages(pkg, names).sort(byName);
   for (const name of add) if (!packageRanges[name]) throw new Error(`No version range is recorded for ${name}.`);
   if (add.length) await checkPath(root, 'package.json');
   return { source, add };
