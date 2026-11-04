@@ -139,7 +139,7 @@ examples; the CLI includes those only as scaffolding reminders.
 | Command | Existing-file behavior |
 | --- | --- |
 | init | Refuses an existing config. Keeps an existing Nuxt plugin and creates only a missing config; not an update command. |
-| add component | Refuses an existing component; use a new name or edit it manually. |
+| add component | Refuses an existing component; use a new name or edit it manually. Installs `sass` only if neither it nor `sass-embedded` is declared. |
 | add composable | Skips existing files and dependencies with a message. useScroll keeps an existing Scroll mount and Pinia module registration. |
 | add styles | Skips identical files and avoids duplicate entries; differing styles/fonts stop installation before edits. Creates a dev grid helper and app mount, preserving existing helpers and mounts. |
 | add conventions | Leaves matching output alone; differing conventions require manual comparison; existing AGENTS.md is preserved. |
@@ -202,9 +202,12 @@ again, so reapply any manual path edits, then commit the config.
 Use `--framework vue` for a plain Vue project (config-only, no Nuxt plugin or GSAP install). Nuxt defaults to `app/` and Vue to
 `src/`; inspect `ms-front-kit.json` and adjust paths for the actual project.
 The CLI reads configuration from the current directory, not parent directories.
-`add styles` and `add composable useScroll` install `sass` as a development
-dependency. A project that only runs `add component` needs to install it itself,
-because generated components use SCSS.
+`add component`, `add styles`, and `add composable useScroll` install `sass` as a
+development dependency, because generated components and styles use SCSS. A project
+that already declares `sass` or `sass-embedded` installs nothing and needs no flag,
+whichever package manager it uses. Otherwise, in a project with another package
+manager or no package.json, these commands refuse and name `--no-install` (see
+[Installing without npm](#installing-without-npm)).
 
 ## Project conventions and AI instructions
 
@@ -413,7 +416,7 @@ as needed using `block__element` and `block--modifier`.
 
 ## Installing without npm
 
-`init`, `add styles`, and `add composable` accept `--no-install`. It runs no
+`init`, `add component`, `add styles`, and `add composable` accept `--no-install`. It runs no
 package manager and needs no network. After the files are created, each package the
 command would otherwise install is added to package.json, so a plain `pnpm
 install`, `yarn`, `bun install`, or `npm install` fetches it:
@@ -423,7 +426,7 @@ install`, `yarn`, `bun install`, or `npm install` fetches it:
 | `gsap` | `^3.15.1` | `dependencies` | Nuxt `init`, and `add composable` with `useRaf`, `useScrollNative`, `useScrollVirtual`, or `useScroll` |
 | `pinia` | `^4.1.0` | `dependencies` | `add composable` with `useScrollBar`, `useScrollNative`, `useScrollVirtual`, or `useScroll` |
 | `@pinia/nuxt` | `^1.0.3` | `dependencies` | The same composables as `pinia`, on Nuxt |
-| `sass` | `^1.106.1` | `devDependencies` | `add styles`, and `add composable useScroll` |
+| `sass` | `^1.106.1` | `devDependencies` | `add component`, `add styles`, and `add composable useScroll` |
 
 An entry already in `dependencies`, `devDependencies`, `peerDependencies`, or
 `optionalDependencies` is never changed or duplicated, and a project declaring

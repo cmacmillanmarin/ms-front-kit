@@ -383,7 +383,7 @@ test('help and the rendered conventions describe the sass declaration', async t 
   await execute('git', ['init', '--quiet'], { cwd: root });
   await run(['add', 'conventions'], root);
   const doc = await readFile(path.join(root, 'docs/conventions/ms-front-kit.md'), 'utf8');
-  assert.match(doc, /runs\s+`npm install --save-dev sass`/);
+  assert.match(doc, /run\s+`npm install --save-dev sass`/);
   assert.match(doc, /`--no-install` runs no package manager and adds\s+`sass` to package\.json `devDependencies`/);
   assert.doesNotMatch(doc, /does not install dependencies/);
 });

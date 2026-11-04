@@ -1,4 +1,6 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { assertNpm, declarePackages, missingPackages, npmInstall, npmInstallCommand, planPackages, readPackage } from './packages.js';
 
 export function componentDetails(input) {
   const segments = input.split('/');
@@ -19,4 +21,26 @@ export async function renderComponent(input) {
   const details = componentDetails(input);
   const template = await readFile(new URL('../../templates/vue/components/basic/component.vue.tpl', import.meta.url), 'utf8');
   return { ...details, contents: template.replaceAll('{{bemBlock}}', details.bemBlock).replaceAll('{{componentName}}', details.name) };
+}
+
+export async function addComponent(root, config, input, safeDirectory, { install = true, installDependencies = npmInstall } = {}) {
+  const { name, directories, contents } = await renderComponent(input);
+  // Settle the packages first: a refusal must leave the project untouched.
+  const declaration = install ? null : await planPackages(root, ['sass']);
+  const missing = install ? missingPackages(await readPackage(root), ['sass']) : [];
+  if (missing.length) await assertNpm(root);
+  const outputDirectory = [config.paths.components, ...directories].join('/');
+  const directory = await safeDirectory(root, outputDirectory);
+  await writeFile(path.join(directory, `${name}.vue`), contents, { flag: 'wx' });
+  const summary = `Created ${outputDirectory}/${name}.vue`;
+  if (missing.length) {
+    try { await installDependencies(root, missing); }
+    catch (error) {
+      throw new Error(`${summary}\nThe component was created, but installing sass failed. Review package.json and the lockfile, then run ${npmInstallCommand(missing)}. ${error.stderr || error.message}`);
+    }
+    return `${summary}\nInstalled sass with npm.`;
+  }
+  if (!declaration?.add.length) return summary;
+  try { return `${summary}\n${await declarePackages(root, declaration)}`; }
+  catch (error) { throw new Error(`${summary}\nThe component was created, but sass was not declared. ${error.message}`); }
 }

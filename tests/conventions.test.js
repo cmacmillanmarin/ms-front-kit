@@ -18,7 +18,7 @@ const conventions = root => path.join(root, 'docs/conventions/ms-front-kit.md');
 test('creates conventions whose example matches real generated code, and an agent reference', async t => {
   const root = await project(t);
   await run(['add', 'conventions'], root);
-  await run(['add', 'component', 'Home/Hero/BackButton'], root);
+  await run(['add', 'component', 'Home/Hero/BackButton', '--no-install'], root);
   const doc = await readFile(conventions(root), 'utf8');
   const component = await readFile(path.join(root, 'app/components/Home/Hero/BackButton.vue'), 'utf8');
   assert.equal(doc.match(/```vue\n([\s\S]*?)\n```/)[1], component.trimEnd());
@@ -101,7 +101,7 @@ test('uses Vue configuration and customized paths', async t => {
   assert.match(doc, /src\/composables/);
   assert.match(doc, /Pinia stores belong in\s+`src\/state`/);
   assert.match(doc, /types they share belong in `src\/shared\/types`/);
-  await run(['add', 'component', 'Home/Hero/BackButton'], root);
+  await run(['add', 'component', 'Home/Hero/BackButton', '--no-install'], root);
   const component = await readFile(path.join(root, 'src/ui/Home/Hero/BackButton.vue'), 'utf8');
   assert.equal(doc.match(/```vue\n([\s\S]*?)\n```/)[1], component.trimEnd());
   assert.match(component, /\/\/ @use "abstracts" as \*;/);

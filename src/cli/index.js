@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-import { readFile, writeFile, mkdir, realpath } from 'node:fs/promises';
+import { readFile, mkdir, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { addConventions } from './conventions.js';
-import { renderComponent } from './component.js';
+import { addComponent } from './component.js';
 import { addStyles } from './styles.js';
 import { initialize } from './init.js';
 import { addComposable } from './composables.js';
@@ -12,8 +12,8 @@ const help = `ms-front-kit — Macmillan Studio
 
 Run from the project root:
   ms-front-kit init --framework nuxt|vue [--no-install]
-  ms-front-kit add component ProductCard
-  ms-front-kit add component Home/Hero/BackButton
+  ms-front-kit add component ProductCard [--no-install]
+  ms-front-kit add component Home/Hero/BackButton [--no-install]
   ms-front-kit add conventions
   ms-front-kit add styles [--no-install]
   ms-front-kit add composable useResize|useDevice|useRaf|useScroll [--no-install]
@@ -28,6 +28,8 @@ devDependencies, the others to dependencies.
 add styles also registers global CSS, configures the abstracts alias, installs
 a development-only Helper/Grid.vue overlay in the app shell, and installs Sass
 with npm unless the project already declares sass or sass-embedded.
+add component installs Sass with npm too, unless the project already declares
+sass or sass-embedded, because generated components use SCSS.
 React and Astro are not implemented yet.`;
 
 async function loadConfig(root) {
@@ -98,15 +100,10 @@ export async function run(args, root = process.cwd()) {
   if (args.length === 2 && args[0] === 'add' && args[1] === 'conventions') {
     return addConventions(root, await loadConfig(root), safeDirectory);
   }
-  if (args.length !== 3 || args[0] !== 'add' || args[1] !== 'component') {
-    throw new Error('Usage: ms-front-kit add component ProductCard');
+  if (![3, 4].includes(args.length) || args[0] !== 'add' || args[1] !== 'component' || (args.length === 4 && args[3] !== '--no-install')) {
+    throw new Error('Usage: ms-front-kit add component ProductCard [--no-install]');
   }
-  const { name, directories, contents } = await renderComponent(args[2]);
-  const config = await loadConfig(root);
-  const outputDirectory = [config.paths.components, ...directories].join('/');
-  const directory = await safeDirectory(root, outputDirectory);
-  await writeFile(path.join(directory, `${name}.vue`), contents, { flag: 'wx' });
-  return `Created ${outputDirectory}/${name}.vue`;
+  return addComponent(root, await loadConfig(root), args[2], safeDirectory, { install: args.length === 3 });
 }
 
 if (process.argv[1] && await realpath(process.argv[1]) === fileURLToPath(import.meta.url)) {
