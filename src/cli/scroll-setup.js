@@ -170,8 +170,7 @@ export async function planScrollSetup(root, config, componentFile, checkPath, re
     }
   }
   // Only projects that ran add styles have the tokens file; others use the fallbacks.
-  const baseStyles = path.posix.join(config.paths.styles, 'ms-front-kit/base');
-  const tokensFile = path.posix.join(baseStyles, '_tokens.scss');
+  const tokensFile = path.posix.join(config.paths.styles, 'ms-front-kit/base/_tokens.scss');
   await checkPath(root, tokensFile);
   const tokens = await readOptional(path.join(root, tokensFile));
   if (tokens !== null) {
@@ -180,13 +179,6 @@ export async function planScrollSetup(root, config, componentFile, checkPath, re
     notes.push(result.note);
     const focusNote = focusTokensNote(tokens);
     if (focusNote) notes.push(focusNote);
-    const focusFile = path.posix.join(baseStyles, '_focus.scss');
-    await checkPath(root, focusFile);
-    if (await readOptional(path.join(root, focusFile)) === null) {
-      notes.push('Installed styles have no base/_focus.scss, so they add no site-wide focus ring. If you have none elsewhere, add a :focus-visible rule using the focus tokens to your global styles.');
-    }
-  } else {
-    notes.push('Scroll draws its own focus rings with fallback values. add styles also installs the focus tokens and a site-wide ring.');
   }
   await checkPath(root, appFile);
   const source = await readOptional(path.join(root, appFile));

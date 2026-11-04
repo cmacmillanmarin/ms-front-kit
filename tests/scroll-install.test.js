@@ -201,8 +201,7 @@ for (const framework of ['nuxt', 'vue']) {
       await mkdir(path.join(root, 'src'), { recursive: true });
       await writeFile(path.join(root, 'src/main.ts'), 'export {};\n');
     }
-    const message = await run(['add', 'composable', 'useScroll', '--no-install'], root);
-    assert.match(message, /Scroll draws its own focus rings/);
+    await run(['add', 'composable', 'useScroll', '--no-install'], root);
     const css = compileScrollStyles(await readFile(path.join(root, layout.paths.components, 'Scroll/Index.vue'), 'utf8'));
     const rings = css.match(/outline: var\(--focus-size, 2px\) solid var\(--color-focus, currentcolor\);\s*outline-offset: calc\(var\(--focus-size, 2px\) \* -1\);/g) || [];
     assert.equal(rings.length, 2); // The native root and the overlay scrollbar.
@@ -235,7 +234,6 @@ test('existing styles keep their tokens file, and the focus tokens they lack are
   await rm(path.join(base, '_focus.scss'));
   const message = await run(['add', 'composable', 'useScroll', '--no-install'], root);
   assert.match(message, /add --focus-size: 2px; --focus-offset: 2px; --color-focus: currentcolor; to :root/);
-  assert.match(message, /no base\/_focus\.scss, so they add no site-wide focus ring\. If you have none elsewhere/);
   assert.equal(await readFile(file, 'utf8'), legacy);
   await assert.rejects(access(path.join(base, '_focus.scss')), { code: 'ENOENT' });
 
