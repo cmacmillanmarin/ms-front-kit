@@ -235,7 +235,7 @@ test('existing styles keep their tokens file, and the focus tokens they lack are
   await rm(path.join(base, '_focus.scss'));
   const message = await run(['add', 'composable', 'useScroll', '--no-install'], root);
   assert.match(message, /add --focus-size: 2px; --focus-offset: 2px; --color-focus: currentcolor; to :root/);
-  assert.match(message, /no base\/_focus\.scss/);
+  assert.match(message, /no base\/_focus\.scss, so they add no site-wide focus ring\. If you have none elsewhere/);
   assert.equal(await readFile(file, 'utf8'), legacy);
   await assert.rejects(access(path.join(base, '_focus.scss')), { code: 'ENOENT' });
 
@@ -243,6 +243,6 @@ test('existing styles keep their tokens file, and the focus tokens they lack are
   const custom = ':root {\n  --vh: 100dvh;\n  --focus-size: 3px;\n  --color-focus: red;\n}\n';
   await writeFile(file, custom);
   const partial = await run(['add', 'composable', 'useScroll', '--no-install'], root);
-  assert.match(partial, /add --focus-offset: 2px; to :root/);
+  assert.match(partial, /fallback for any of --focus-size and --color-focus that are not defined\. Unless defined elsewhere, you can add --focus-offset: 2px; to :root/);
   assert.equal(await readFile(file, 'utf8'), custom);
 });

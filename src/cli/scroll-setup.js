@@ -124,7 +124,7 @@ function focusTokensNote(source) {
   const missing = focusTokens.filter(([name]) => !new RegExp(`${name}\\s*:`).test(source));
   if (!missing.length) return null;
   const declarations = missing.map(([name, value]) => `${name}: ${value};`).join(' ');
-  return `Focus tokens: installed styles were left as they are, and Scroll falls back to a 2px currentcolor ring. To set your own, add ${declarations} to :root in base/_tokens.scss.`;
+  return `Focus tokens: installed styles were left as they are. Scroll uses a 2px currentcolor fallback for any of --focus-size and --color-focus that are not defined. Unless defined elsewhere, you can add ${declarations} to :root in base/_tokens.scss.`;
 }
 
 function relativeImport(fromDirectory, file) {
@@ -183,7 +183,7 @@ export async function planScrollSetup(root, config, componentFile, checkPath, re
     const focusFile = path.posix.join(baseStyles, '_focus.scss');
     await checkPath(root, focusFile);
     if (await readOptional(path.join(root, focusFile)) === null) {
-      notes.push('Installed styles have no base/_focus.scss, so only Scroll draws a focus ring. For a site-wide ring, add a :focus-visible rule using the focus tokens to your global styles.');
+      notes.push('Installed styles have no base/_focus.scss, so they add no site-wide focus ring. If you have none elsewhere, add a :focus-visible rule using the focus tokens to your global styles.');
     }
   } else {
     notes.push('Scroll draws its own focus rings with fallback values. add styles also installs the focus tokens and a site-wide ring.');
