@@ -1,7 +1,7 @@
 import { readFile, writeFile, lstat } from 'node:fs/promises';
 import path from 'node:path';
 import { nuxtLayout } from './nuxt-layout.js';
-import { assertNpm, npmInstall as installPackages } from './packages.js';
+import { assertNpm, declarePackages, npmInstall as installPackages, planPackages } from './packages.js';
 
 async function npmInstall(root) {
   try {
@@ -39,6 +39,7 @@ export async function initialize(root, framework, safeDirectory, { install = tru
   let plugin;
   let pluginPath;
   let existingPlugin = false;
+  let declaration;
   if (framework === 'nuxt') {
     const layout = await nuxtLayout(root);
     config.paths = layout.paths;
@@ -47,6 +48,7 @@ export async function initialize(root, framework, safeDirectory, { install = tru
     // have the plugin but no config. Keep the plugin and its dependency.
     existingPlugin = await exists(path.join(root, pluginPath));
     if (install && !existingPlugin) await assertNpm(root);
+    if (!install && !existingPlugin) declaration = await planPackages(root, ['gsap']);
     if (!existingPlugin) plugin = await readFile(new URL('../../templates/nuxt/plugins/ms-front-kit.client.ts.tpl', import.meta.url), 'utf8');
   }
   // Record styles already installed elsewhere; add styles sets this marker after installing them.
@@ -57,8 +59,13 @@ export async function initialize(root, framework, safeDirectory, { install = tru
     await writeFile(path.join(pluginDirectory, 'ms-front-kit.client.ts'), plugin, { flag: 'wx' });
     if (install) await installDependencies(root);
   }
+  let declared = 'Dependency installation skipped; gsap is already in package.json.';
+  if (declaration?.add.length) {
+    try { declared = await declarePackages(root, declaration); }
+    catch (error) { throw new Error(`Created configuration and plugin, but gsap was not declared. ${error.message}`); }
+  }
   const pluginResult = plugin
-    ? ` Created ${pluginPath}. ${install ? 'Installed GSAP with npm.' : 'Dependency installation skipped; install gsap with your project package manager.'}`
+    ? ` Created ${pluginPath}. ${install ? 'Installed GSAP with npm.' : declared}`
     : existingPlugin ? ` Kept existing ${pluginPath}; dependency installation skipped.` : '';
   const stylesResult = config.styles.grid ? ' Found installed styles; set styles.grid to true.' : '';
   return `Created ms-front-kit.json.${pluginResult}${stylesResult} Review paths before generating files. Commit ms-front-kit.json with the project. Styles and conventions are separate commands.`;

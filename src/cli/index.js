@@ -22,6 +22,8 @@ Creates project-owned files; preserves customized files.
 add composable useScroll also creates the Pinia scroll store, its types, and
 the Scroll component, mounts it in the app shell, and installs Pinia and GSAP
 with npm.
+--no-install runs no package manager: it adds the packages to package.json
+dependencies instead, for a later plain install with any package manager.
 add styles also registers global CSS, configures the abstracts alias,
 and installs a development-only Helper/Grid.vue overlay in the app shell.
 React and Astro are not implemented yet.`;

@@ -6,6 +6,11 @@ import { nuxtLayout } from './nuxt-layout.js';
 
 const componentNames = new Set(['HelperGrid', 'helper-grid', 'MsFrontKitGrid', 'ms-front-kit-grid']);
 
+// The dev-only mount, in one place for the generated edit and the manual snippet.
+const devFlag = framework => framework === 'nuxt' ? 'import.meta.dev' : 'import.meta.env.DEV';
+const mountScript = (importPath, framework) => `import HelperGrid from ${JSON.stringify(importPath)};\nconst isDev = ${devFlag(framework)};\n`;
+const mountTag = '<HelperGrid v-if="isDev" />';
+
 function hasGrid(node, names) {
   return (node.type === 1 && names.has(node.tag)) ||
     (node.children || []).some(child => hasGrid(child, names));
@@ -33,8 +38,9 @@ export function mountGrid(source, importPath, framework) {
   const template = descriptor.template;
   if (hasGrid(template.ast, gridNames(descriptor, importPath))) return { updated: source, note: 'Existing grid helper mount preserved; keep its development-only guard.' };
   if ([descriptor.script, descriptor.scriptSetup].some(block => block && (block.src || (block.lang && !['ts', 'js'].includes(block.lang))))) return manual('app script requires custom integration');
-  if (/\b(?:MsFrontKitGrid|msFrontKitDev)\b/.test([descriptor.script?.content, descriptor.scriptSetup?.content].join('\n'))) return manual('app already uses the grid integration binding names');
-  const script = `import MsFrontKitGrid from ${JSON.stringify(importPath)};\nconst msFrontKitDev = ${framework === 'nuxt' ? 'import.meta.dev' : 'import.meta.env.DEV'};\n`;
+  // Also read the template: an auto-imported isDev has no declaration in the script.
+  if (/\b(?:HelperGrid|isDev|MsFrontKitGrid|msFrontKitDev)\b/.test([descriptor.script?.content, descriptor.scriptSetup?.content, template.content].join('\n'))) return manual('app already uses a grid integration binding name (HelperGrid, isDev, MsFrontKitGrid, or msFrontKitDev), so rename any that clash in the snippet');
+  const script = mountScript(importPath, framework);
   const edits = [];
   if (descriptor.scriptSetup) {
     edits.push({ at: descriptor.scriptSetup.loc.start.offset, text: `\n${script}` });
@@ -50,7 +56,7 @@ export function mountGrid(source, importPath, framework) {
   if (root?.type === 1 && !root.isSelfClosing && (root.tagType === 0 || root.tag === 'Html')) {
     at = root.loc.end.offset - root.loc.source.match(/<\/[^>]+>\s*$/)[0].length;
   }
-  edits.push({ at, text: '\n  <MsFrontKitGrid v-if="msFrontKitDev" />\n' });
+  edits.push({ at, text: `\n  ${mountTag}\n` });
   let updated = source;
   for (const edit of edits.sort((a, b) => b.at - a.at)) updated = updated.slice(0, edit.at) + edit.text + updated.slice(edit.at);
   // Validate the combined SFC too, including interaction with an Options script.
@@ -90,7 +96,7 @@ export async function planGridHelper(root, config, checkPath, readOptional) {
   if (result.updated !== initial) edits.push({ file: appFile, source, updated: result.updated });
   notes.push(result.note);
   if (result.updated === initial && /manually/.test(result.note)) {
-    notes.push(`\n<script setup>\nimport MsFrontKitGrid from ${JSON.stringify(relative)};\nconst msFrontKitDev = ${config.framework === 'nuxt' ? 'import.meta.dev' : 'import.meta.env.DEV'};\n</script>\n<!-- Add inside the existing template: -->\n<MsFrontKitGrid v-if="msFrontKitDev" />`);
+    notes.push(`\n<script setup>\n${mountScript(relative, config.framework)}</script>\n<!-- Add inside the existing template: -->\n${mountTag}`);
   }
   return { edits, message: notes.join(' ') };
 }

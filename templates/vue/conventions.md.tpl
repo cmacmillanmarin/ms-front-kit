@@ -18,8 +18,10 @@ init parses literal `srcDir`, `dir.assets`, and `dir.plugins` settings to place
 files in the configured source, assets, and plugin directories. It does not
 execute config code. Dynamic, layered, or environment-specific layouts need
 manual setup. Review custom component/composable scanning separately. Existing
-config or plugin files are not overwritten. `--no-install` skips dependency installation; install
-gsap using the project's package manager before running the app. Vue init remains
+config or plugin files are not overwritten. `--no-install` runs no package manager and adds gsap to
+package.json dependencies instead; run a plain install with the project's package
+manager before running the app. `add composable --no-install` does the same for the
+packages it would install, leaving existing entries untouched. Vue init remains
 config-only; do not copy a Nuxt plugin into a plain Vue application.
 
 The client plugin prints the studio credit, registers GSAP CustomEase, and defines
@@ -289,12 +291,13 @@ prints manual mounting instructions. Layered/dynamic Nuxt layouts also require
 manual mounting. Do not replace existing application content to add the helper.
 
 Keep the helper development-only when moving it into a layout. For manual
-mounting, merge an import for `MsFrontKitGrid` from the helper's actual relative
-path and `const msFrontKitDev = import.meta.dev` (Nuxt) or
-`const msFrontKitDev = import.meta.env.DEV` (Vue/Vite) into script setup, then add
-`<MsFrontKitGrid v-if="msFrontKitDev" />` beside the app content. Neither the
+mounting, merge an import for `HelperGrid` from the helper's actual relative
+path and `const isDev = import.meta.dev` (Nuxt) or
+`const isDev = import.meta.env.DEV` (Vue/Vite) into script setup, then add
+`<HelperGrid v-if="isDev" />` beside the app content. Neither the
 overlay nor its button should render in production. Do not add another mount
-when an existing HelperGrid mount already provides this behavior.
+when an existing mount already provides this behavior, including an earlier
+`MsFrontKitGrid` one.
 
 The helper uses `grid()` and `columns(1)` with the installed layout tokens,
 12 spans, and clipped extra rows for the default four-column mobile layout.

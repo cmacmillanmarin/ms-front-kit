@@ -43,9 +43,10 @@ for (const framework of ['nuxt', 'vue']) {
     assert.match(updated, /keep project logic/);
     assert.match(updated, /<h1>\{\{ title \}\}<\/h1>/);
     assert.match(updated, /<style>\.project \{ color: red; \}<\/style>/);
-    assert.match(updated, /import MsFrontKitGrid from "\.\.\/ui\/Helper\/Grid.vue"/);
-    assert.ok(updated.includes(framework === 'nuxt' ? 'import.meta.dev' : 'import.meta.env.DEV'));
-    assert.match(updated, /<MsFrontKitGrid v-if="msFrontKitDev" \/>/);
+    assert.match(updated, /import HelperGrid from "\.\.\/ui\/Helper\/Grid.vue"/);
+    assert.ok(updated.includes(`const isDev = ${framework === 'nuxt' ? 'import.meta.dev' : 'import.meta.env.DEV'};`));
+    assert.match(updated, /<HelperGrid v-if="isDev" \/>/);
+    assert.doesNotMatch(updated, /MsFrontKit|msFrontKit/);
     assert.match(message, /development mode only/);
     assert.deepEqual(parse(updated).errors, []);
     await run(['add', 'styles'], root);
@@ -73,10 +74,36 @@ test('existing mounts using a custom import name are not duplicated', () => {
   assert.equal(mountGrid(source, './components/Helper/Grid.vue', 'vue').updated, source);
 });
 
+for (const framework of ['nuxt', 'vue']) {
+  test(`${framework}: a mount from an earlier version is recognized, not rewritten or doubled`, async t => {
+    const { root, app } = await project(t, framework);
+    const source = `<script setup lang="ts">\nimport MsFrontKitGrid from "./components/Helper/Grid.vue";\nconst msFrontKitDev = ${framework === 'nuxt' ? 'import.meta.dev' : 'import.meta.env.DEV'};\n</script>\n<template>\n  <main />\n  <MsFrontKitGrid v-if="msFrontKitDev" />\n</template>\n`;
+    await writeFile(path.join(root, app), source);
+    assert.match(await run(['add', 'styles'], root), /Existing grid helper mount preserved/);
+    assert.equal(await readFile(path.join(root, app), 'utf8'), source);
+  });
+}
+
+for (const [label, source] of [
+  ['a different isDev', '<script setup lang="ts">const isDev = false;</script>\n<template><main>{{ isDev }}</main></template>\n'],
+  ['an imported isDev', '<script setup lang="ts">import { isDev } from "./env";</script>\n<template><main /></template>\n'],
+  ['an isDev in a plain script', '<script lang="ts">export const isDev = false;</script>\n<template><main /></template>\n'],
+  ['an auto-imported isDev', '<template><main v-if="isDev" /></template>\n'],
+  ['a HelperGrid that is not mounted', '<script setup lang="ts">import HelperGrid from "./other.vue"; console.log(HelperGrid);</script>\n<template><main /></template>\n']
+]) {
+  test(`${label} goes to manual instructions instead of a duplicate declaration`, async t => {
+    const { root, app } = await project(t);
+    await writeFile(path.join(root, app), source);
+    const message = await run(['add', 'styles'], root);
+    assert.equal(await readFile(path.join(root, app), 'utf8'), source);
+    assert.match(message, /already uses a grid integration binding name[\s\S]*Mount it manually[\s\S]*<HelperGrid v-if="isDev" \/>/);
+  });
+}
+
 test('Html roots get the overlay inside Html, not in layout slots', () => {
   const source = '<script setup lang="ts">const head = useLocaleHead();</script>\n<template><Html :lang="head.htmlAttrs.lang"><NuxtLayout><NuxtPage /></NuxtLayout></Html></template>';
   const { updated } = mountGrid(source, './components/Helper/Grid.vue', 'nuxt');
-  assert.match(updated, /<\/NuxtLayout>\s*<MsFrontKitGrid v-if="msFrontKitDev" \/>\s*<\/Html>/);
+  assert.match(updated, /<\/NuxtLayout>\s*<HelperGrid v-if="isDev" \/>\s*<\/Html>/);
   assert.match(updated, /const head = useLocaleHead\(\)/);
 });
 
@@ -84,9 +111,9 @@ test('missing app is created without depending on Nuxt auto-import scanning', as
   const { root, app } = await project(t);
   await run(['add', 'styles'], root);
   const source = await readFile(path.join(root, app), 'utf8');
-  assert.match(source, /import MsFrontKitGrid from ".\/components\/Helper\/Grid.vue"/);
+  assert.match(source, /import HelperGrid from ".\/components\/Helper\/Grid.vue"/);
   assert.match(source, /<NuxtPage \/>/);
-  assert.match(source, /<MsFrontKitGrid v-if="msFrontKitDev" \/>/);
+  assert.match(source, /<HelperGrid v-if="isDev" \/>/);
 });
 
 test('unsupported app templates are preserved with manual integration instructions', async t => {
