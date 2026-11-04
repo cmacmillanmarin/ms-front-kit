@@ -37,6 +37,33 @@ test('Nuxt init creates the plugin and requests GSAP installation', async t => {
   assert.equal(ast.parseDiagnostics.length, 0);
 });
 
+for (const [label, source] of [
+  ['a pinned version', '{"dependencies":{"gsap":"3.12.0"}}'],
+  ['an empty range', '{"dependencies":{"gsap":""}}'],
+  ['a devDependencies entry', '{"devDependencies":{"gsap":"3.12.0"}}']
+]) {
+  test(`Nuxt init does not install or rewrite gsap declared with ${label}`, async t => {
+    const root = await project(t);
+    await writeFile(path.join(root, 'package.json'), source);
+    let calls = 0;
+    const result = await initialize(root, 'nuxt', directory, { installDependencies: async () => { calls++; } });
+    assert.equal(calls, 0);
+    assert.doesNotMatch(result, /Installed GSAP/);
+    assert.match(result, /Dependency installation skipped; gsap is already in package\.json\./);
+    assert.equal(await readFile(path.join(root, 'package.json'), 'utf8'), source);
+    await readFile(path.join(root, 'app/plugins/ms-front-kit.client.ts'), 'utf8');
+  });
+}
+
+test('Nuxt init with gsap declared needs no npm in another package manager project', async t => {
+  const root = await project(t);
+  const source = '{"packageManager":"pnpm@10.0.0","dependencies":{"gsap":"3.12.0"}}';
+  await writeFile(path.join(root, 'package.json'), source);
+  const result = await initialize(root, 'nuxt', directory, { installDependencies: async () => assert.fail('must not install') });
+  assert.match(result, /gsap is already in package\.json/);
+  assert.equal(await readFile(path.join(root, 'package.json'), 'utf8'), source);
+});
+
 test('no-install creates a plugin and declares gsap in package.json', async t => {
   const root = await project(t);
   const result = await run(['init', '--framework', 'nuxt', '--no-install'], root);
