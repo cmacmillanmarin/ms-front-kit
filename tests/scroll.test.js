@@ -87,7 +87,7 @@ test('useScroll installs composables, store, component, Pinia module and app mou
 
 test('installed styles get the --vh token once, and customized tokens are preserved', async t => {
   const root = await project(t);
-  await run(['add', 'styles'], root);
+  await run(['add', 'styles', '--no-install'], root);
   const { paths } = JSON.parse(await readFile(path.join(root, 'ms-front-kit.json'), 'utf8'));
   const file = path.join(root, paths.styles, 'ms-front-kit/base/_tokens.scss');
   const template = await readFile(new URL('../templates/shared/scss/base/_tokens.scss', import.meta.url), 'utf8');
@@ -203,8 +203,8 @@ test('installation adds only missing packages, after files, and checks npm first
       assert.ok(await readFile(path.join(directory, 'app/components/Scroll/Index.vue'), 'utf8'));
     }
   });
-  assert.deepEqual(installs, [['@pinia/nuxt', 'gsap']]);
-  assert.match(message, /Installed @pinia\/nuxt, gsap with npm/);
+  assert.deepEqual(installs, [['@pinia/nuxt', 'gsap', 'sass']]);
+  assert.match(message, /Installed @pinia\/nuxt, gsap, sass with npm/);
   // Composables without packages never install.
   await addComposable(root, config, 'useResize', safe, { installDependencies: () => assert.fail('no packages needed') });
   // useRaf alone brings its own package.

@@ -208,7 +208,7 @@ for (const framework of ['nuxt', 'vue']) {
     assert.doesNotMatch(css.replaceAll(/var\(--[\w-]+, [^)]+\)/g, ''), /var\(--focus|var\(--color-focus/); // Every token has a fallback.
     assert.match(css, /\.scroll__bar:focus-visible/);
 
-    await run(['add', 'styles'], root);
+    await run(['add', 'styles', '--no-install'], root);
     const main = sass.compile(path.join(root, layout.paths.styles ?? `${framework === 'nuxt' ? 'app' : 'src'}/assets/scss`, 'ms-front-kit/main.scss')).css;
     assert.match(main, /--focus-size: 2px/);
     assert.match(main, /--color-focus: currentcolor/);
@@ -216,14 +216,14 @@ for (const framework of ['nuxt', 'vue']) {
     // Scroll keeps its own files, and running it again adds nothing to the current tokens.
     const second = await run(['add', 'composable', 'useScroll', '--no-install'], root);
     assert.doesNotMatch(second, /Focus tokens:/);
-    await run(['add', 'styles'], root); // Tokens still match the template, so this stays repeatable.
+    await run(['add', 'styles', '--no-install'], root); // Tokens still match the template, so this stays repeatable.
   });
 }
 
 test('existing styles keep their tokens file, and the focus tokens they lack are only suggested', async t => {
   const layout = layouts[0];
   const root = await freshProject(t, layout);
-  await run(['add', 'styles'], root);
+  await run(['add', 'styles', '--no-install'], root);
   const base = path.join(root, 'app/assets/scss/ms-front-kit/base');
   const file = path.join(base, '_tokens.scss');
   const template = await readFile(new URL('../templates/shared/scss/base/_tokens.scss', import.meta.url), 'utf8');

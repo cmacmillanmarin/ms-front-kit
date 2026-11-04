@@ -20,7 +20,7 @@ async function project(t, framework = 'nuxt', source = 'export default defineNux
 
 test('Nuxt installation copies files, registers CSS and is repeatable', async t => {
   const root = await project(t);
-  const message = await run(['add', 'styles'], root);
+  const message = await run(['add', 'styles', '--no-install'], root);
   assert.match(message, /Copied 12 SCSS files/);
   const variables = await readFile(path.join(root, 'app/assets/scss/ms-front-kit/abstracts/_variables.scss'), 'utf8');
   assert.match(variables, /\$design-root-size: 16px !default/);
@@ -32,11 +32,12 @@ test('Nuxt installation copies files, registers CSS and is repeatable', async t 
   const installedFont = await readFile(path.join(root, 'public/assets/font/HelveticaNowDisplayMedium.woff2'));
   const sourceFont = await readFile(new URL('../templates/shared/fonts/HelveticaNowDisplayMedium.woff2', import.meta.url));
   assert.ok(installedFont.equals(sourceFont));
-  assert.match(message, /npm install --save-dev sass/);
+  assert.match(message, /No package\.json found/);
+  assert.match(message, /devDependencies: "sass": "\^/);
   assert.match(await readFile(path.join(root, 'app/assets/scss/ms-front-kit/main.scss'), 'utf8'), /base\/reset/);
   const first = await readFile(path.join(root, 'nuxt.config.ts'), 'utf8');
   assert.match(first, /css: \["@\/assets\/scss\/ms-front-kit\/main.scss"\]/);
-  await run(['add', 'styles'], root);
+  await run(['add', 'styles', '--no-install'], root);
   assert.equal(await readFile(path.join(root, 'nuxt.config.ts'), 'utf8'), first);
 });
 
@@ -69,7 +70,7 @@ test('dynamic or malformed Nuxt configurations stop before copying files', async
     'export default defineNuxtConfig({css: []',
   ]) {
     const root = await project(t, 'nuxt', source);
-    await assert.rejects(run(['add', 'styles'], root));
+    await assert.rejects(run(['add', 'styles', '--no-install'], root));
     assert.equal(await readFile(path.join(root, 'nuxt.config.ts'), 'utf8'), source);
     await assert.rejects(readFile(path.join(root, 'app/assets/scss/ms-front-kit/main.scss')), { code: 'ENOENT' });
   }
@@ -79,7 +80,7 @@ test('customized styles are not overwritten and config is untouched', async t =>
   const root = await project(t);
   await mkdir(path.join(root, 'app/assets/scss/ms-front-kit/base'), { recursive: true });
   await writeFile(path.join(root, 'app/assets/scss/ms-front-kit/base/_reset.scss'), '/* mine */');
-  await assert.rejects(run(['add', 'styles'], root), /already exists and differs/);
+  await assert.rejects(run(['add', 'styles', '--no-install'], root), /already exists and differs/);
   assert.equal(await readFile(path.join(root, 'app/assets/scss/ms-front-kit/base/_reset.scss'), 'utf8'), '/* mine */');
   assert.equal(await readFile(path.join(root, 'nuxt.config.ts'), 'utf8'), 'export default defineNuxtConfig({});\n');
   await assert.rejects(readFile(path.join(root, 'app/assets/scss/ms-front-kit/main.scss')), { code: 'ENOENT' });
@@ -93,11 +94,11 @@ test('Vue installation uses custom paths and preserves its entry on repeat', asy
   config.paths.styles = 'src/styles';
   await writeFile(configFile, JSON.stringify(config));
   await writeFile(path.join(root, 'package.json'), JSON.stringify({ devDependencies: { sass: '^1.0.0' } }));
-  const result = await run(['add', 'styles'], root);
+  const result = await run(['add', 'styles', '--no-install'], root);
   assert.doesNotMatch(result, /Install the compiler/);
   const first = await readFile(path.join(root, 'src/main.ts'), 'utf8');
   assert.equal(first, 'import "./styles/ms-front-kit/main.scss";\n' + source);
-  await run(['add', 'styles'], root);
+  await run(['add', 'styles', '--no-install'], root);
   assert.equal(await readFile(path.join(root, 'src/main.ts'), 'utf8'), first);
   assert.match(await readFile(path.join(root, 'src/styles/ms-front-kit/main.scss'), 'utf8'), /base\/reset/);
 });
@@ -107,7 +108,7 @@ test('a conflicting font stops before copying styles or editing config', async t
   await mkdir(path.join(root, 'public/assets/font'), { recursive: true });
   const font = path.join(root, 'public/assets/font/HelveticaNowDisplayMedium.woff2');
   await writeFile(font, 'custom asset');
-  await assert.rejects(run(['add', 'styles'], root), /already exists and differs/);
+  await assert.rejects(run(['add', 'styles', '--no-install'], root), /already exists and differs/);
   assert.equal(await readFile(font, 'utf8'), 'custom asset');
   assert.equal(await readFile(path.join(root, 'nuxt.config.ts'), 'utf8'), 'export default defineNuxtConfig({});\n');
   await assert.rejects(readFile(path.join(root, 'app/assets/scss/ms-front-kit/main.scss')), { code: 'ENOENT' });
@@ -119,11 +120,11 @@ test('linked config and linked destination paths are refused', async t => {
   await writeFile(path.join(root, 'external.ts'), original);
   await rm(path.join(root, 'nuxt.config.ts'));
   await symlink(path.join(root, 'external.ts'), path.join(root, 'nuxt.config.ts'));
-  await assert.rejects(run(['add', 'styles'], root), /linked path/);
+  await assert.rejects(run(['add', 'styles', '--no-install'], root), /linked path/);
   assert.equal(await readFile(path.join(root, 'external.ts'), 'utf8'), original);
 
   const other = await project(t);
   await mkdir(path.join(other, 'target'));
   await symlink(path.join(other, 'target'), path.join(other, 'app/assets'));
-  await assert.rejects(run(['add', 'styles'], other), /linked path/);
+  await assert.rejects(run(['add', 'styles', '--no-install'], other), /linked path/);
 });
