@@ -268,7 +268,7 @@ abstracts/_index.scss       CSS-free public Sass tools
 abstracts/_variables.scss   $design-root-size, editable fonts, breakpoint and typography maps
 abstracts/_functions.scss   rem() conversion from px design values
 abstracts/_mixins.scss      font-size(), from(), type(), with token validation
-base/_reset.scss            minimal normalization, native focus/controls preserved
+base/_reset.scss            minimal normalization, native controls preserved
 base/_tokens.scss           runtime CSS custom properties
 base/_fonts.scss            example font registration used by typography tokens
 base/_typography.scss       body defaults, browser root size preserved
