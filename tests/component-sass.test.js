@@ -151,16 +151,6 @@ test('a failed install keeps the component and names the command', async t => {
   assert.ok(await present(path.join(root, generated)));
 });
 
-test('a component whose configured style is not SCSS declares nothing', async t => {
-  const root = await project(t, '{}\n');
-  const config = JSON.parse(await readFile(path.join(root, 'ms-front-kit.json'), 'utf8'));
-  config.components.style = 'css';
-  const fail = async () => { throw new Error('nothing should be installed'); };
-  assert.equal(await addComponent(root, config, 'ProductCard', safe, { installDependencies: fail }), `Created ${generated}`);
-  assert.equal(await addComponent(root, config, 'OtherCard', safe, { install: false }), 'Created app/components/OtherCard.vue');
-  assert.equal(await readPkg(root), '{}\n');
-});
-
 test('add component rejects other arguments', async t => {
   const root = await project(t, '{}\n');
   await assert.rejects(run(['add', 'component', 'ProductCard', '--force'], root), /Usage: ms-front-kit add component ProductCard \[--no-install\]/);

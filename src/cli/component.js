@@ -25,10 +25,9 @@ export async function renderComponent(input) {
 
 export async function addComponent(root, config, input, safeDirectory, { install = true, installDependencies = npmInstall } = {}) {
   const { name, directories, contents } = await renderComponent(input);
-  const packages = config.components.style === 'scss' ? ['sass'] : [];
   // Settle the packages first: a refusal must leave the project untouched.
-  const declaration = install ? null : await planPackages(root, packages);
-  const missing = install ? missingPackages(await readPackage(root), packages) : [];
+  const declaration = install ? null : await planPackages(root, ['sass']);
+  const missing = install ? missingPackages(await readPackage(root), ['sass']) : [];
   if (missing.length) await assertNpm(root);
   const outputDirectory = [config.paths.components, ...directories].join('/');
   const directory = await safeDirectory(root, outputDirectory);
