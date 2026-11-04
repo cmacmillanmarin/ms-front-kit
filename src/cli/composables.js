@@ -73,9 +73,11 @@ export async function addComposable(root, config, name, safeDirectory, { install
   function render(source, directory) {
     const replacements = {
       storeDirectory: relativeDirectory(directory, config.paths.store),
+      typesDirectory: relativeDirectory(directory, config.paths.types),
       composablesDirectory: relativeDirectory(directory, config.paths.composables),
       componentsPath: config.paths.components,
-      storePath: config.paths.store
+      storePath: config.paths.store,
+      typesPath: config.paths.types
     };
     return source.replace(/\{\{(\w+)\}\}/g, (match, key) => replacements[key] ?? match);
   }
@@ -96,11 +98,22 @@ export async function addComposable(root, config, name, safeDirectory, { install
   }
   const storeNames = [...new Set(ordered.map(item => composables[item].store).filter(Boolean))];
   const packages = new Set();
+  const typeNames = new Set(ordered.flatMap(item => composables[item].types || []));
   for (const store of storeNames) {
     const entry = stores[store];
     if (!entry || !/^[A-Za-z0-9]+\.ts\.tpl$/.test(entry.template)) throw new Error(`Invalid store catalog entry: ${store}`);
     outputs.push({ directory: config.paths.store, file: `${store}.ts`, template: `stores/${entry.template}`, prefix: '' });
     for (const item of entry.packages[config.framework]) packages.add(item);
+    for (const item of entry.types || []) typeNames.add(item);
+  }
+  for (const item of ordered) {
+    for (const dependency of composables[item].packages?.[config.framework] || []) packages.add(dependency);
+  }
+  // Each type file ships once, however many composables and stores import it.
+  for (const name of typeNames) {
+    if (!/^[a-z]+\/[A-Za-z0-9]+$/.test(name)) throw new Error(`Invalid types catalog entry: ${name}`);
+    const [group, file] = name.split('/');
+    outputs.push({ directory: `${config.paths.types}/${group}`, file: `${file}.ts`, template: `types/${name}.ts.tpl`, prefix: '' });
   }
   const component = composables[name].component;
   const notes = [];

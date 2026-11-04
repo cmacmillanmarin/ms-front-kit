@@ -19,6 +19,11 @@
           "minLength": 1,
           "description": "Pinia store directory. Optional: defaults to a store directory beside composables."
         },
+        "types": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Directory for types shared by generated composables and stores. Optional: defaults to a types directory beside composables."
+        },
         "styles": { "type": "string", "minLength": 1 }
       }
     },

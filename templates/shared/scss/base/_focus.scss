@@ -1,0 +1,7 @@
+// Site-wide keyboard focus ring from the focus tokens. :focus-visible keeps it
+// off mouse clicks. Components can still override it, e.g. to inset the ring
+// where an outer one would be clipped.
+:focus-visible {
+  outline: var(--focus-size) solid var(--color-focus);
+  outline-offset: var(--focus-offset);
+}

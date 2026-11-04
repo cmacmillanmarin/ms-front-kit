@@ -15,6 +15,7 @@
   },
   "devDependencies": {
     "@vue/server-renderer": "^3.5.44",
+    "gsap": "^3.15.1",
     "pinia": "^4.1.0",
     "sass": "^1.106.1",
     "vue": "^3.5.44",

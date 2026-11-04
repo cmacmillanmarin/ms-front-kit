@@ -17,6 +17,8 @@
   "useRaf": {
     "template": "useRaf.ts.tpl",
     "dependencies": [],
+    "types": ["composables/useRaf"],
+    "packages": { "nuxt": ["gsap"], "vue": ["gsap"] },
     "imports": {
       "vue": ["onUnmounted"]
     }
@@ -32,6 +34,7 @@
     "template": "useScrollNative.ts.tpl",
     "dependencies": ["useRaf"],
     "store": "useScrollStore",
+    "types": ["composables/useScrollNative"],
     "imports": {
       "vue": ["onBeforeUnmount"],
       "composables": ["useRaf"]
@@ -41,6 +44,7 @@
     "template": "useScrollVirtual.ts.tpl",
     "dependencies": ["useRaf"],
     "store": "useScrollStore",
+    "types": ["composables/useScrollVirtual"],
     "imports": {
       "vue": ["onBeforeUnmount"],
       "composables": ["useRaf"]
@@ -51,18 +55,18 @@
     "dependencies": [],
     "store": "useScrollStore",
     "imports": {
-      "vue": ["onBeforeUnmount"]
+      "vue": ["onBeforeUnmount", "watch"]
     }
   },
   "useScroll": {
     "template": "useScroll.ts.tpl",
-    "dependencies": ["useResize", "useDevice", "useScrollLock", "useScrollNative", "useScrollVirtual", "useScrollBar"],
+    "dependencies": ["useResize", "useDevice", "useRaf", "useScrollLock", "useScrollNative", "useScrollVirtual", "useScrollBar"],
     "store": "useScrollStore",
     "component": { "name": "Scroll", "template": "scroll/Index.vue.tpl", "docs": "scroll/README.md.tpl" },
     "imports": {
       "vue": ["nextTick", "onBeforeUnmount", "watch"],
       "router": ["useRoute"],
-      "composables": ["useDevice", "useResize", "useScrollLock", "useScrollNative", "useScrollVirtual"]
+      "composables": ["useDevice", "useRaf", "useResize", "useScrollLock", "useScrollNative", "useScrollVirtual"]
     }
   }
 }

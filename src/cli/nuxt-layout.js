@@ -92,6 +92,7 @@ export async function nuxtLayout(root) {
       components: path.posix.join(sourceDirectory, 'components'),
       composables: path.posix.join(sourceDirectory, 'composables'),
       store: path.posix.join(sourceDirectory, 'store'),
+      types: path.posix.join(sourceDirectory, 'types'),
       styles: path.posix.join(sourceDirectory, assets, 'scss')
     },
     pluginPath: path.posix.join(sourceDirectory, plugins, 'ms-front-kit.client.ts')

@@ -1,12 +1,14 @@
 import { storeToRefs } from 'pinia'
-import useScrollStore, { type ActiveScrollMode, type Data } from '{{storeDirectory}}/useScrollStore'
+import type { ActiveScrollMode, Data } from '{{typesDirectory}}/store/useScrollStore'
+import useScrollStore from '{{storeDirectory}}/useScrollStore'
 
 export default function useScroll() {
   // Without a router (plain Vue), route syncing is skipped.
   const route = useRoute() as ReturnType<typeof useRoute> | undefined
-  const { touch } = useDevice()
+  const { touch, isDesktop, isTabletLandscape } = useDevice()
   const { onResize } = useResize()
   const lock = useScrollLock()
+  const { addTicker, killTicker } = useRaf()
   const virtualScroll = useScrollVirtual()
   const nativeScroll = useScrollNative()
 
@@ -16,7 +18,7 @@ export default function useScroll() {
   let el: HTMLElement | undefined
   let unregister: (() => void) | undefined
   let observer: ResizeObserver | undefined
-  let frame: number | undefined
+  let updatePending = false
 
   function engine() {
     return activeMode.value === 'virtual' ? virtualScroll : nativeScroll
@@ -24,7 +26,11 @@ export default function useScroll() {
 
   function start(): void {
     if (!el) return
-    const next: ActiveScrollMode = mode.value === 'virtual' || (mode.value === 'auto' && !touch.value) ? 'virtual' : 'native'
+    // auto: native only on touch devices with a mobile layout; touch laptops and
+    // landscape tablets keep the virtual scroll. Without the kit's device styles
+    // no layout is known, so touch alone decides.
+    const native = touch.value && !isDesktop.value && !isTabletLandscape.value
+    const next: ActiveScrollMode = mode.value === 'virtual' || (mode.value === 'auto' && !native) ? 'virtual' : 'native'
     if (activeMode.value === next) return
     const position = store.data.current
     virtualScroll.destroy()
@@ -36,6 +42,7 @@ export default function useScroll() {
       virtualScroll.disable(disabled.value)
     } else {
       nativeScroll.create({ el, update: onScroll, position })
+      nativeScroll.disable(disabled.value)
     }
   }
 
@@ -51,13 +58,18 @@ export default function useScroll() {
     engine().reset()
   }
 
-  // Coalesce bursts of size changes (images, fonts, lazy content) into one measurement.
+  // Coalesce bursts of size changes (images, fonts, lazy content) into one
+  // measurement on the next shared frame.
   function requestUpdate(): void {
-    if (frame !== undefined) return
-    frame = requestAnimationFrame(() => {
-      frame = undefined
-      update()
-    })
+    if (updatePending) return
+    updatePending = true
+    addTicker(flushUpdate)
+  }
+
+  function flushUpdate(): void {
+    killTicker(flushUpdate)
+    updatePending = false
+    update()
   }
 
   function init(params: { el: HTMLElement }): void {
@@ -80,8 +92,8 @@ export default function useScroll() {
   function destroy(): void {
     observer?.disconnect()
     observer = undefined
-    if (frame !== undefined) cancelAnimationFrame(frame)
-    frame = undefined
+    killTicker(flushUpdate)
+    updatePending = false
     unregister?.()
     unregister = undefined
     virtualScroll.destroy()
@@ -92,11 +104,12 @@ export default function useScroll() {
     store.setActiveMode(undefined)
   }
 
-  watch([mode, touch], start)
+  watch([mode, touch, isDesktop, isTabletLandscape], start)
 
   watch(disabled, value => {
     if (!el) return
     virtualScroll.disable(value)
+    nativeScroll.disable(value)
     if (value) lock.create()
     else lock.destroy()
   })

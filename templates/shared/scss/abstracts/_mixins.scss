@@ -31,3 +31,20 @@
     }
   }
 }
+
+// Focus ring for elements that also show it on mouse activation.
+@mixin focusable {
+  &:focus,
+  &:active:not(:disabled, [aria-disabled="true"]) {
+    outline: var(--focus-size) solid var(--color-focus);
+    outline-offset: var(--focus-offset);
+  }
+}
+
+@mixin focusable-inverted {
+  &:focus,
+  &:active:not(:disabled, [aria-disabled="true"]) {
+    outline: var(--focus-size) solid var(--color-focus-inverted);
+    outline-offset: var(--focus-offset);
+  }
+}

@@ -16,8 +16,10 @@ Scroll is mounted once in the app shell, around the routed content:
 
 | Prop | Values | Default | Description |
 | --- | --- | --- | --- |
-| `mode` | `"auto"` \| `"virtual"` \| `"native"` | `"auto"` | `auto` uses virtual scroll without touch support and native scroll with it. |
+| `mode` | `"auto"` \| `"virtual"` \| `"native"` | `"auto"` | `auto` uses native scroll on touch devices with a mobile layout (the kit's `mobile` and `tablet` breakpoints) and virtual scroll otherwise, including touch laptops and landscape tablets. Without the kit's device styles no layout is known, so touch alone decides. |
 | `scrollbar` | `boolean` | `true` | macOS-style overlay scrollbar in virtual mode. Native mode always keeps the browser's bar. |
+| `scrollbarLabel` | `string` | `"Page scroll"` | Accessible name of the overlay scrollbar. Pass a translated string on multilingual sites. |
+| `contentLabel` | `string` | `"Page content"` | Accessible name of the scroll region in native mode. Pass a translated string on multilingual sites. |
 
 - The Scroll root is `var(--vh, 100svh)` tall and is the only scroll container.
   The window never scrolls, so mobile toolbars stay put.
@@ -44,8 +46,8 @@ Boolean attributes need no value: `<section data-scroll>`. Numbers are px.
 | `data-scroll-continuous` | virtual | — | Use with `data-scroll`. The element keeps moving while off-screen instead of being parked (for content that overflows its box or is tracked elsewhere). |
 | `data-scroll-sticky` | virtual | — | Sticks inside its parent. The offset is the CSS `top`. |
 | `data-scroll-sticky-bottom` | virtual | px | Space to keep between the sticky element and the bottom of its parent. Default `0`. |
-| `data-scroll-fixed-from` | virtual | px | Scroll position where the element stops moving. Needs `data-scroll-fixed-to`. |
-| `data-scroll-fixed-to` | virtual | px | Scroll position where the element starts moving again. |
+| `data-scroll-fixed-from` | virtual | px | Use with `data-scroll` and `data-scroll-fixed-to`. Scroll position where the element stops moving. |
+| `data-scroll-fixed-to` | virtual | px | Use with `data-scroll` and `data-scroll-fixed-from`. Scroll position where the element starts moving again. |
 | `data-scroll-set-progress` | both | — | Writes `data-scroll-progress` and `data-scroll-current` (see below). |
 | `data-scroll-set-position` | both | — | Writes `data-position-top/-left/-right/-bottom` when measured. |
 | `data-scroll-target-offset` | both | px | Distance kept above the element when `scrollTo` targets it, for example a fixed header's height. |
@@ -58,10 +60,12 @@ Boolean attributes need no value: `<section data-scroll>`. Numbers are px.
   `position: fixed` descendants then move with it.
 - If **any** element has `data-scroll`, only marked elements move: mark every
   top-level section, or unmarked content stays in place.
-- Do not nest `data-scroll`, `data-scroll-sticky`, or `data-scroll-fixed-*`
-  elements inside each other. A moving element inside a moving section moves
-  twice. Sticky elements are the exception: they belong inside a marked section,
-  as below.
+- Only `data-scroll` elements move. `data-scroll-continuous` and
+  `data-scroll-fixed-*` change how a `data-scroll` element moves and do nothing
+  on their own.
+- Do not nest `data-scroll` elements inside each other. A moving element inside
+  a moving section moves twice. Sticky elements are the exception: they belong
+  inside a marked section, as below.
 - Mark a few large sections rather than many small elements, because each
   moving element is a compositor layer. Off-screen sections skip writes.
 
@@ -86,11 +90,12 @@ Write the CSS for native mode and add the attribute for virtual mode:
 ### Pinning a block between two positions (virtual)
 
 ```vue
-<div data-scroll-fixed-from="0" data-scroll-fixed-to="1200" class="intro">...</div>
+<div data-scroll data-scroll-fixed-from="0" data-scroll-fixed-to="1200" class="intro">...</div>
 ```
 
 The element moves normally until a scroll position of `0`, stays fixed until
-`1200`, and then scrolls away. Place it outside any `data-scroll` section.
+`1200`, and then scrolls away. Use it on a top-level section, not inside
+another `data-scroll`.
 
 ## Data attributes Scroll writes
 
@@ -113,7 +118,8 @@ The element moves normally until a scroll position of `0`, stays fixed until
 
 ## Store
 
-`{{storePath}}/useScrollStore.ts` (Pinia). Import it relatively or through your
+`{{storePath}}/useScrollStore.ts` (Pinia), with its types in
+`{{typesPath}}/store/useScrollStore.ts`. Import them relatively or through your
 alias. Never use `window.scrollY`, `window.scrollTo`, window scroll listeners,
 or the router's `scrollBehavior`.
 
@@ -128,12 +134,40 @@ scroll.update();                                    // re-measure after layout c
 scroll.reset();                                     // back to the top and re-measure
 scroll.setMode("native");                           // usually set through <Scroll mode>
 
-const stop = scroll.addRenderCallback(data => {
-  // Per-frame work: animations, WebGL, DOM writes.
+watch(() => scroll.data, data => {
+  // Scroll-driven work: runs only while the position changes.
   title.style.opacity = String(1 - data.current / 400);
-});
-stop();                                             // or scroll.removeRenderCallback(callback)
+}, { flush: "sync" });
 ```
+
+Watchers on `data` run on every frame in which the scroll moves, and once after
+each re-measure (`update()`, `reset()`, resizes) or instant jump. They do not
+run while the scroll is at rest, so they are not a render loop. Use
+`flush: "sync"` so they run in the same frame as the scroll update. Created
+during setup, they stop automatically on unmount.
+
+For work that must run on every frame, such as a WebGL scene that keeps
+animating at rest, add a ticker to `useRaf` and read `scroll.data` inside it.
+`useRaf` runs on GSAP's ticker, the single `requestAnimationFrame` loop shared
+by the scroll, GSAP tweens, and every other ticker. Tickers get GSAP's
+arguments: `time` in seconds and `delta` in ms:
+
+```ts
+const { addTicker, killTicker } = useRaf();
+const scroll = useScrollStore();
+
+function tick(time: number, delta: number): void {
+  scene.update(delta, scroll.data.current);
+  renderer.render(scene, camera);
+}
+
+addTicker(tick); // removed automatically on unmount, or killTicker(tick)
+```
+
+The scroll registers its ticker with `{ priority: true }`, so it steps first in
+every frame: GSAP tweens and other tickers, which run in the order they were
+added, always read that frame's position. Keep `priority` for the scroll; another
+prioritized ticker could end up before it.
 
 | State | Type | Description |
 | --- | --- | --- |
@@ -141,9 +175,10 @@ stop();                                             // or scroll.removeRenderCal
 | `activeMode` | `"virtual" \| "native" \| undefined` | Mode in use (`auto` resolved). |
 | `isVirtual` | `boolean` | `activeMode === "virtual"`. |
 | `disabled` | `boolean` | Scroll locked. |
-| `data` | `Data` | Latest values, replaced on every animated frame. |
+| `data` | `Data` | Latest values, replaced on every scroll frame. |
+| `progress` | `string` | `data.progress` with two decimals (`"0.42"`). |
 
-`Data`, received by render callbacks:
+`Data`:
 
 | Field | Description |
 | --- | --- |
@@ -152,10 +187,13 @@ stop();                                             // or scroll.removeRenderCal
 | `speed` | Remaining distance to the target in px (`0` at rest). |
 | `direction` | `"up"` or `"down"`. |
 | `bounding` | Maximum scroll position (content height minus viewport). |
+| `progress` | Page progress from `0` (top) to `1` (end), eased. `0` if there is nothing to scroll. |
 | `inTarget` | `true` once the eased position has reached the target. |
 
-Read `data` inside render callbacks, not through watchers or template bindings,
-because it changes on every frame. Callbacks run before reactive consumers.
+Read `data` inside sync watchers or tickers, not through template bindings: it
+changes on every scroll frame, so a binding would re-render the component each
+time. To show the page progress in a template, bind the store's `progress`,
+which only updates when its two decimals change.
 
 ## Behavior to know
 
@@ -169,6 +207,11 @@ because it changes on every frame. Callbacks run before reactive consumers.
 - **Keyboard (virtual)**: arrows move 100px; Page Up/Down and Space move 90% of
   the viewport (Shift+Space goes up); Home and End go to the limits. These keys
   are ignored while typing in a field.
+- **Keyboard (native)**: the root is a focusable `role="region"` named by
+  `contentLabel`, with an inset focus ring, so it can be reached by Tab in
+  browsers that don't focus scroll containers (Safari). While focus is outside
+  it (the body, the header), the same keys scroll it (arrows move 40px); inside
+  it the browser scrolls it natively.
 - **Focus (virtual)**: elements focused with the keyboard that are out of view
   are centered, unless they have `data-tab-fixed`.
 - **Reduced motion**: `prefers-reduced-motion: reduce` disables easing.
@@ -195,6 +238,12 @@ The scrollbar behaves like the macOS overlay bar:
 - Clicking the track pages toward the pointer, and holding repeats.
 - Option/Alt-click jumps to the clicked spot.
 - The wheel works over it.
+- It is an accessible `role="scrollbar"`: named by `scrollbarLabel`, linked to
+  the content with `aria-controls`, and reporting the position as a 0–100
+  `aria-valuenow`. It is the last tab stop of the Scroll; while focused it opens
+  as on hover, and the keyboard keys above move it.
+- Focus rings use `--focus-size` and `--color-focus` from the kit's
+  `base/_tokens.scss`, falling back to a 2px `currentcolor` ring without them.
 
 Over dark backgrounds, the thumb turns light automatically. Restyle it in
 Index.vue:

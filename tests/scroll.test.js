@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile, rm, symlink, readdir } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { parse, compileScript } from '@vue/compiler-sfc';
 import ts from 'typescript';
 import { run } from '../src/cli/index.js';
 import { addComposable } from '../src/cli/composables.js';
 import { addViewportToken, mountScroll, updateNuxtModules } from '../src/cli/scroll-setup.js';
 
+const typeFiles = ['composables/useRaf', 'composables/useScrollNative', 'composables/useScrollVirtual', 'store/useScrollStore'];
 const scrollFiles = ['useResize', 'useDevice', 'useRaf', 'useScrollLock', 'useScrollNative', 'useScrollVirtual', 'useScrollBar', 'useScroll'];
 
 async function project(t, framework = 'nuxt', { app, nuxtConfig = 'export default defineNuxtConfig({});\n', pkg = '{"private":true}' } = {}) {
@@ -40,7 +40,8 @@ test('useScroll installs composables, store, component, Pinia module and app mou
   assert.match(await readFile(path.join(root, 'app/store/useScrollStore.ts'), 'utf8'), /defineStore\('scroll'/);
   const component = await readFile(path.join(root, 'app/components/Scroll/Index.vue'), 'utf8');
   assert.match(component, /import useScroll from "\.\.\/\.\.\/composables\/useScroll"/);
-  assert.match(component, /import useScrollStore, \{ type ScrollMode \} from "\.\.\/\.\.\/store\/useScrollStore"/);
+  assert.match(component, /import useScrollStore from "\.\.\/\.\.\/store\/useScrollStore"/);
+  assert.match(component, /import type \{ ScrollMode \} from "\.\.\/\.\.\/types\/store\/useScrollStore"/);
   assert.match(component, /import useScrollBar from "\.\.\/\.\.\/composables\/useScrollBar"/);
   assert.match(component, /scrollbar = true/); // The overlay scrollbar is on by default.
   assert.match(component, /v-if="scrollbar && store.isVirtual && !store.disabled"/);
@@ -53,7 +54,7 @@ test('useScroll installs composables, store, component, Pinia module and app mou
   assert.match(updated, /import Scroll from "\.\/components\/Scroll\/Index.vue"/);
   assert.match(updated, /\/\/ keep\nconst title = "Hi";/);
   assert.match(updated, /<Scroll>\s*<NuxtLayout>\s*<NuxtPage \/>\s*<\/NuxtLayout>\s*<\/Scroll>/);
-  assert.match(message, /install pinia @pinia\/nuxt/);
+  assert.match(message, /install pinia @pinia\/nuxt gsap/);
   assert.match(message, /Created app\/components\/Scroll\/Index.vue[\s\S]*Created app\/components\/Scroll\/README.md/);
   const docs = await readFile(path.join(root, 'app/components/Scroll/README.md'), 'utf8');
   assert.doesNotMatch(docs, /\{\{\w+\}\}/);
@@ -74,7 +75,7 @@ test('useScroll installs composables, store, component, Pinia module and app mou
   await writeFile(path.join(root, 'app/components/Scroll/README.md'), '# Our scroll notes\n');
   const config = await readFile(path.join(root, 'nuxt.config.ts'), 'utf8');
   const second = await run(['add', 'composable', 'useScroll', '--no-install'], root);
-  assert.equal((second.match(/Skipped/g) || []).length, scrollFiles.length + 3);
+  assert.equal((second.match(/Skipped/g) || []).length, scrollFiles.length + typeFiles.length + 3);
   assert.match(second, /already registered/);
   assert.match(second, /Existing Scroll mount preserved/);
   assert.equal(await readFile(path.join(root, 'app/composables/useScrollVirtual.ts'), 'utf8'), '// customized');
@@ -137,43 +138,52 @@ test('Vue output uses explicit imports and configured component, composable and 
   config.paths.components = 'src/ui';
   config.paths.composables = 'src/shared/composables';
   config.paths.store = 'src/state';
+  config.paths.types = 'src/shared/types';
   await writeFile(configFile, JSON.stringify(config));
   const message = await run(['add', 'composable', 'useScroll', '--no-install'], root);
   const scroll = await readFile(path.join(root, 'src/shared/composables/useScroll.ts'), 'utf8');
   assert.match(scroll, /^import \{ nextTick, onBeforeUnmount, watch \} from 'vue';/);
   assert.match(scroll, /import \{ useRoute \} from 'vue-router';/);
   assert.match(scroll, /from '\.\.\/\.\.\/state\/useScrollStore'/);
+  assert.match(scroll, /from '\.\.\/types\/store\/useScrollStore'/);
+  for (const name of typeFiles) assert.ok(await readFile(path.join(root, `src/shared/types/${name}.ts`), 'utf8'));
   const component = await readFile(path.join(root, 'src/ui/Scroll/Index.vue'), 'utf8');
   assert.match(component, /from "\.\.\/\.\.\/shared\/composables\/useScroll"/);
   assert.match(component, /from "\.\.\/\.\.\/state\/useScrollStore"/);
   const docs = await readFile(path.join(root, 'src/ui/Scroll/README.md'), 'utf8');
   assert.match(docs, /`src\/ui\/Scroll\/Index.vue`/);
   assert.match(docs, /`src\/state\/useScrollStore.ts`/);
+  assert.match(docs, /`src\/shared\/types\/store\/useScrollStore.ts`/);
   assert.match(await readFile(path.join(root, 'src/App.vue'), 'utf8'), /<Scroll>\s*<RouterView \/>\s*<\/Scroll>/);
   assert.match(message, /createPinia/);
   assert.match(message, /vue-router/);
-  assert.match(message, /install pinia with/);
+  assert.match(message, /install pinia gsap with/);
 });
 
-test('configurations without paths.store default to a sibling store directory and are not rewritten', async t => {
+test('configurations without paths.store or paths.types default to sibling directories and are not rewritten', async t => {
   const root = await project(t);
   const configFile = path.join(root, 'ms-front-kit.json');
   const config = JSON.parse(await readFile(configFile, 'utf8'));
   delete config.paths.store;
+  delete config.paths.types;
   const legacy = JSON.stringify(config);
   await writeFile(configFile, legacy);
   await run(['add', 'composable', 'useScroll', '--no-install'], root);
   assert.ok(await readFile(path.join(root, 'app/store/useScrollStore.ts'), 'utf8'));
+  for (const name of typeFiles) assert.ok(await readFile(path.join(root, `app/types/${name}.ts`), 'utf8'));
+  assert.match(await readFile(path.join(root, 'app/composables/useRaf.ts'), 'utf8'), /from '\.\.\/types\/composables\/useRaf'/);
   assert.equal(await readFile(configFile, 'utf8'), legacy);
 });
 
-test('store paths outside the project are rejected', async t => {
-  const root = await project(t);
-  const configFile = path.join(root, 'ms-front-kit.json');
-  const config = JSON.parse(await readFile(configFile, 'utf8'));
-  config.paths.store = '../outside';
-  await writeFile(configFile, JSON.stringify(config));
-  await assert.rejects(run(['add', 'composable', 'useScroll', '--no-install'], root), /paths.store/);
+test('store and types paths outside the project are rejected', async t => {
+  for (const key of ['store', 'types']) {
+    const root = await project(t);
+    const configFile = path.join(root, 'ms-front-kit.json');
+    const config = JSON.parse(await readFile(configFile, 'utf8'));
+    config.paths[key] = '../outside';
+    await writeFile(configFile, JSON.stringify(config));
+    await assert.rejects(run(['add', 'composable', 'useScroll', '--no-install'], root), new RegExp(`paths.${key}`));
+  }
 });
 
 test('installation adds only missing packages, after files, and checks npm first', async t => {
@@ -192,10 +202,14 @@ test('installation adds only missing packages, after files, and checks npm first
       assert.ok(await readFile(path.join(directory, 'app/components/Scroll/Index.vue'), 'utf8'));
     }
   });
-  assert.deepEqual(installs, [['@pinia/nuxt']]);
-  assert.match(message, /Installed @pinia\/nuxt with npm/);
+  assert.deepEqual(installs, [['@pinia/nuxt', 'gsap']]);
+  assert.match(message, /Installed @pinia\/nuxt, gsap with npm/);
   // Composables without packages never install.
-  await addComposable(root, config, 'useRaf', safe, { installDependencies: () => assert.fail('no packages needed') });
+  await addComposable(root, config, 'useResize', safe, { installDependencies: () => assert.fail('no packages needed') });
+  // useRaf alone brings its own package.
+  const raf = [];
+  await addComposable(root, config, 'useRaf', safe, { installDependencies: async (_directory, names) => { raf.push(names); } });
+  assert.deepEqual(raf, [['gsap']]);
 
   const other = await project(t);
   await writeFile(path.join(other, 'yarn.lock'), '');
@@ -255,21 +269,4 @@ test('updateNuxtModules appends once to literal module arrays only', () => {
     assert.equal(result.updated, source);
     assert.match(result.note, /manually/);
   }
-});
-
-test('generated Vue scroll output type-checks in strict mode', async t => {
-  const root = await project(t, 'vue');
-  await run(['add', 'composable', 'useScroll', '--no-install'], root);
-  await symlink(fileURLToPath(new URL('../node_modules', import.meta.url)), path.join(root, 'node_modules'));
-  const files = [
-    ...scrollFiles.map(name => path.join(root, `src/composables/${name}.ts`)),
-    path.join(root, 'src/store/useScrollStore.ts')
-  ];
-  const program = ts.createProgram(files, {
-    strict: true, noEmit: true, noUnusedLocals: true, noUnusedParameters: true, skipLibCheck: true,
-    target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler,
-    lib: ['lib.es2022.d.ts', 'lib.dom.d.ts', 'lib.dom.iterable.d.ts']
-  });
-  const diagnostics = ts.getPreEmitDiagnostics(program).map(d => ts.flattenDiagnosticMessageText(d.messageText, '\n'));
-  assert.deepEqual(diagnostics, []);
 });

@@ -1,19 +1,33 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, useId, watch } from "vue";
+import type { ScrollMode } from "{{typesDirectory}}/store/useScrollStore";
 import useScroll from "{{composablesDirectory}}/useScroll";
 import useScrollBar from "{{composablesDirectory}}/useScrollBar";
-import useScrollStore, { type ScrollMode } from "{{storeDirectory}}/useScrollStore";
+import useScrollStore from "{{storeDirectory}}/useScrollStore";
 
-// auto: virtual scroll without touch support, native scroll with it.
+// auto: native scroll on touch devices with a mobile layout, virtual otherwise.
 // scrollbar: overlay scrollbar in virtual mode; native mode keeps the browser's.
-const { mode = "auto", scrollbar = true } = defineProps<{ mode?: ScrollMode; scrollbar?: boolean }>();
+// scrollbarLabel: accessible name of the overlay scrollbar.
+// contentLabel: accessible name of the scroll region in native mode.
+const {
+  mode = "auto",
+  scrollbar = true,
+  scrollbarLabel = "Page scroll",
+  contentLabel = "Page content",
+} = defineProps<{ mode?: ScrollMode; scrollbar?: boolean; scrollbarLabel?: string; contentLabel?: string }>();
 
+const contentId = useId();
 const content = ref<HTMLElement>();
 const track = ref<HTMLElement>();
 const thumb = ref<HTMLElement>();
 const store = useScrollStore();
 const scroll = useScroll();
 const bar = useScrollBar();
+
+// In native mode the root is the scroll container, so it must be reachable
+// by keyboard in browsers that don't focus scroll containers (Safari).
+// Virtual mode handles scroll keys globally and needs no tab stop.
+const isNative = computed<boolean>(() => store.activeMode === "native");
 
 watch(() => mode, value => store.setMode(value), { immediate: true });
 
@@ -28,11 +42,29 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="scroll">
-    <div ref="content" class="scroll__content">
+  <div
+    class="scroll"
+    :tabindex="isNative ? 0 : undefined"
+    :role="isNative ? 'region' : undefined"
+    :aria-label="isNative ? contentLabel : undefined"
+  >
+    <div :id="contentId" ref="content" class="scroll__content">
       <slot />
     </div>
-    <div v-if="scrollbar && store.isVirtual && !store.disabled" ref="track" class="scroll__bar" aria-hidden="true">
+    <!-- Focusable for keyboard users: the global scroll keys move it, and
+    useScrollBar keeps aria-valuenow in sync as a percentage. -->
+    <div
+      v-if="scrollbar && store.isVirtual && !store.disabled"
+      ref="track"
+      class="scroll__bar"
+      role="scrollbar"
+      tabindex="0"
+      aria-orientation="vertical"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      :aria-controls="contentId"
+      :aria-label="scrollbarLabel"
+    >
       <div ref="thumb" class="scroll__thumb" />
     </div>
   </div>
@@ -59,6 +91,14 @@ onMounted(() => {
     &::-webkit-scrollbar {
       display: none;
     }
+  }
+
+  // Native mode focus target. It fills the viewport, so the ring is inset to
+  // stay visible. The tokens come from the kit's base/_tokens.scss (add styles);
+  // the fallbacks keep the ring working without them.
+  &:focus-visible {
+    outline: var(--focus-size, 2px) solid var(--color-focus, currentcolor);
+    outline-offset: calc(var(--focus-size, 2px) * -1);
   }
 }
 
@@ -113,19 +153,30 @@ onMounted(() => {
 
   &[data-visible],
   &[data-active],
-  &:hover {
+  &:hover,
+  &:focus-visible {
     opacity: 1;
     transition-duration: 0.1s;
   }
 
   &[data-active],
-  &:hover {
+  &:hover,
+  &:focus-visible {
     border-color: var(--scroll-track-border);
     background-color: var(--scroll-track);
+  }
+
+  // Inset: the bar touches the Scroll's clipped edges, so an outer offset would
+  // only show on the left.
+  &:focus-visible {
+    outline: var(--focus-size, 2px) solid var(--color-focus, currentcolor);
+    outline-offset: calc(var(--focus-size, 2px) * -1);
   }
 }
 
 .scroll__thumb {
+  // Moved every scroll frame; translate3d alone is not promoted in Chrome.
+  will-change: transform;
   flex-shrink: 0;
   width: 7px;
   border-radius: 6px;
@@ -134,7 +185,8 @@ onMounted(() => {
   transition: width 0.15s, background-color 0.15s, box-shadow 0.15s;
 
   .scroll__bar[data-active] &,
-  .scroll__bar:hover & {
+  .scroll__bar:hover &,
+  .scroll__bar:focus-visible & {
     width: 11px;
   }
 }

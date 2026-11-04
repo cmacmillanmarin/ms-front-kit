@@ -116,10 +116,14 @@ This example is rendered directly from the same template as the generator:
   Sass installation command if no compiler is declared; it does not install dependencies.
 - Install the compiler with `npm install --save-dev sass`.
 - `main.scss` emits global CSS and must be included once. `abstracts/_index.scss`
-  exposes variables, `rem()`, and the `font-size`, `from`, and `type` mixins
+  exposes variables, `rem()`, and the `font-size`, `from`, `type`, `focusable`,
+  and `focusable-inverted` mixins
   without emitting CSS.
 - The reset only normalizes box sizing, body margin, and form-control fonts.
-  It deliberately preserves native headings, lists, links, and focus outlines.
+  It deliberately preserves native headings, lists, and links. `base/_focus.scss`
+  draws the site-wide `:focus-visible` ring from the `--focus-size`,
+  `--focus-offset`, and `--color-focus` tokens; override it per component only
+  where it would be clipped, and do not remove focus outlines.
 - Keep the browser's root font size. Body text starts at `1rem` with a line-height
   of `1.5`. Do not set every descendant's font size or assume 1rem equals 10px.
 - Put runtime CSS custom properties in `base/_tokens.scss`; build-time defaults
@@ -404,7 +408,7 @@ Components that add animation or smooth scrolling must consider
 ## Composables and framework behavior
 
 - Project composables belong in `{{composablesPath}}`; Pinia stores belong in
-  `{{storePath}}`.
+  `{{storePath}}`; the types they share belong in `{{typesPath}}`.
 - Available commands: `ms-front-kit add composable useResize`,
   `useDevice`, `useRaf`, and `useScroll`. Dependencies are added when missing
   (useDevice adds useResize). Existing files, including customized dependencies,
@@ -447,19 +451,24 @@ Components that add animation or smooth scrolling must consider
   import deliberately; don't overwrite project customizations.
 - Do not assign body::after to unrelated visual content when useDevice is used.
 - Register per-frame work through useRaf's addTicker/killTicker instead of
-  starting separate requestAnimationFrame loops. Tickers receive `(time, delta)`;
-  use delta for frame-rate independent motion. The loop stops when empty.
+  starting separate requestAnimationFrame loops. useRaf runs on GSAP's ticker, so
+  tickers share one loop with GSAP tweens. They receive `(time, delta)` with time
+  in seconds and delta in ms; use delta for frame-rate independent motion. Keep
+  the `{ priority: true }` option for the scroll.
 - `{{componentsPath}}/Scroll/README.md` (created with Scroll) lists the data attributes,
   their values and modes, and the store API; read it before using scroll features.
 - useScroll is mounted once through `<Scroll>` in the app shell. Do not call
   useScroll, useScrollVirtual, or useScrollNative elsewhere; control scrolling
   through useScrollStore: `scrollTo(target, { immediate, align })` (id, element,
-  or number), `disable()`, `update()`, `reset()`, and `addRenderCallback()`.
+  or number), `disable()`, `update()`, and `reset()`.
 - The Scroll root is a `var(--vh)` (100svh) scroll container and the window never
   scrolls. Do not use window.scrollY, window.scrollTo, scroll listeners on
   window, or the router's scrollBehavior for page scrolling; use the store and
-  render callbacks. Keep the root height fixed so mobile toolbars stay put.
+  sync watchers on `store.data`. Keep the root height fixed so mobile toolbars stay put.
   Use `var(--vh)` instead of `100vh` for full-viewport sections.
+- `<Scroll mode="auto">` uses native scroll on touch devices with a mobile layout
+  and virtual scroll otherwise; without the kit's device styles, touch alone
+  decides.
 - In virtual mode, mark large sections with `data-scroll` rather than many small
   elements: each moving element is a compositor layer, and off-screen sections
   skip writes. Without marked elements the whole content moves, which turns fixed
@@ -468,12 +477,18 @@ Components that add animation or smooth scrolling must consider
   (`scrollbar` prop, default true); native mode keeps the browser's bar. Do not
   add another custom scrollbar or hide it with `::-webkit-scrollbar`; restyle
   `.scroll__bar` and `.scroll__thumb` in Scroll/Index.vue instead.
+- The overlay scrollbar is a focusable `role="scrollbar"`, and the native root a
+  focusable `role="region"`. Keep their roles and tab stops. The `scrollbarLabel`
+  and `contentLabel` props name them in English by default; pass translated
+  strings on multilingual sites.
 - Virtual mode supports the browser's find in page: while the find bar is in
   use, the root scrolls natively (`data-scroll-find`) and sections stay in
   place. Do not block Cmd/Ctrl+F, Cmd/Ctrl+G, or F3. Do not restyle the root's
   overflow, which the scroll engine owns.
-- Read scroll values per frame inside render callbacks, not through watchers or
-  template bindings on `store.data`, which changes every animated frame.
+- Read scroll values inside `watch(() => store.data, ..., { flush: "sync" })` or
+  a useRaf ticker, not through template bindings on `store.data`, which changes
+  every scroll frame. Sync watchers do not run at rest; use a ticker for work that
+  must run every frame. Bind the store's `progress` to show page progress.
 - Call the store's `update()` after layout changes ResizeObserver cannot see
   (for example, transforms or late class toggles), and `reset()` after page
   transitions finish. Mark scrollable modals with `data-scroll-lock-allow`.

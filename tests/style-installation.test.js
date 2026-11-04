@@ -21,7 +21,7 @@ async function project(t, framework = 'nuxt', source = 'export default defineNux
 test('Nuxt installation copies files, registers CSS and is repeatable', async t => {
   const root = await project(t);
   const message = await run(['add', 'styles'], root);
-  assert.match(message, /Copied 11 SCSS files/);
+  assert.match(message, /Copied 12 SCSS files/);
   const variables = await readFile(path.join(root, 'app/assets/scss/ms-front-kit/abstracts/_variables.scss'), 'utf8');
   assert.match(variables, /\$design-root-size: 16px !default/);
   assert.doesNotMatch(variables, /@(?:use|forward) "settings"/);

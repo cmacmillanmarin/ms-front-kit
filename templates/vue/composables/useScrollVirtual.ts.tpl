@@ -1,27 +1,5 @@
-import type { Data, Direction, ScrollTarget, ScrollTargetOptions } from '{{storeDirectory}}/useScrollStore'
-
-interface Child {
-  el: HTMLElement
-  scrollable: boolean
-  continuous: boolean
-  sticky: boolean
-  setProgress: boolean
-  setPosition: boolean
-  fixedFrom: number | undefined
-  fixedTo: number | undefined
-  // Inside another moved child, so its transform is relative to that one.
-  nested: boolean
-  ownsWillChange: boolean
-  top: number
-  height: number
-  inView: boolean
-  stickyLimitTop: number
-  stickyLimitBottom: number
-  stickyState: boolean | undefined
-  y: number
-  progress: string
-  scrollCurrent: string
-}
+import type { Child } from '{{typesDirectory}}/composables/useScrollVirtual'
+import type { Data, Direction, ScrollTarget, ScrollTargetOptions } from '{{typesDirectory}}/store/useScrollStore'
 
 const selector = '[data-scroll], [data-scroll-sticky], [data-scroll-set-progress], [data-scroll-set-position]'
 
@@ -251,6 +229,7 @@ export default function useScrollVirtual() {
       speed: round(Math.abs(target - current)),
       direction,
       bounding,
+      progress: bounding > 0 ? position / bounding : 0,
       inTarget: Math.abs(target - current) < 0.1,
     })
   }
@@ -278,7 +257,8 @@ export default function useScrollVirtual() {
   function wake(): void {
     if (running || !active) return
     running = true
-    addTicker(tick)
+    // First in the frame, so later tickers read the fresh position.
+    addTicker(tick, { priority: true })
   }
 
   function sleep(): void {
