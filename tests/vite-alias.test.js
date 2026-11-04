@@ -37,33 +37,33 @@ test('Vue installation configures custom paths and a portable executable alias',
   await writeFile(configFile, JSON.stringify(config));
   const file = path.join(root, 'vite.config.mjs');
   await writeFile(file, 'export default { resolve: { alias: { existing: "/keep" } } };\n');
-  await run(['add', 'styles'], root);
+  await run(['add', 'styles', '--no-install'], root);
   const first = await readFile(file, 'utf8');
   const installed = (await import(pathToFileURL(file).href)).default;
   assert.equal(installed.resolve.alias.abstracts, await realpath(path.join(root, 'src/custom styles/ms-front-kit/abstracts')));
   assert.equal(installed.resolve.alias.existing, '/keep');
-  await run(['add', 'styles'], root);
+  await run(['add', 'styles', '--no-install'], root);
   assert.equal(await readFile(file, 'utf8'), first);
 });
 
 test('Nuxt installation merges its Vite alias and preserves existing aliases', async t => {
   const root = await project(t, 'nuxt');
-  await run(['add', 'styles'], root);
+  await run(['add', 'styles', '--no-install'], root);
   const file = path.join(root, 'nuxt.config.ts');
   const first = await readFile(file, 'utf8');
   assert.match(first, /old: "\/keep"/);
   assert.match(first, /new URL\("\.\/app\/assets\/scss\/ms-front-kit\/abstracts"/);
-  await run(['add', 'styles'], root);
+  await run(['add', 'styles', '--no-install'], root);
   assert.equal(await readFile(file, 'utf8'), first);
 });
 
 test('Vue creates a Vite configuration when absent', async t => {
   const root = await project(t);
-  await run(['add', 'styles'], root);
+  await run(['add', 'styles', '--no-install'], root);
   const file = path.join(root, 'vite.config.ts');
   const first = await readFile(file, 'utf8');
   assert.match(first, /abstracts:/);
-  await run(['add', 'styles'], root);
+  await run(['add', 'styles', '--no-install'], root);
   assert.equal(await readFile(file, 'utf8'), first);
 });
 
@@ -82,7 +82,7 @@ test('unsafe Vite configurations stop before entry edits, copying, or config cha
     const file = path.join(root, 'vite.config.ts');
     await writeFile(file, source);
     const config = await readFile(path.join(root, 'ms-front-kit.json'), 'utf8');
-    await assert.rejects(run(['add', 'styles'], root), /alias/);
+    await assert.rejects(run(['add', 'styles', '--no-install'], root), /alias/);
     assert.equal(await readFile(file, 'utf8'), source);
     assert.equal(await readFile(path.join(root, 'src/main.ts'), 'utf8'), '// app entry\n');
     assert.equal(await readFile(path.join(root, 'ms-front-kit.json'), 'utf8'), config);
@@ -95,6 +95,6 @@ test('linked Vite configurations are refused', async t => {
   const target = path.join(root, 'target.ts');
   await writeFile(target, 'export default {};');
   await symlink(target, path.join(root, 'vite.config.ts'));
-  await assert.rejects(run(['add', 'styles'], root), /linked/);
+  await assert.rejects(run(['add', 'styles', '--no-install'], root), /linked/);
   assert.equal(await readFile(target, 'utf8'), 'export default {};');
 });

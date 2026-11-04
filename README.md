@@ -52,7 +52,6 @@ defaults to their src/ equivalents. Configurations without `paths.store` or
 ### 2. Add the foundation and AI conventions
 
 ```sh
-npm install --save-dev sass
 ms-front-kit add styles
 ms-front-kit add conventions
 ```
@@ -203,7 +202,9 @@ again, so reapply any manual path edits, then commit the config.
 Use `--framework vue` for a plain Vue project (config-only, no Nuxt plugin or GSAP install). Nuxt defaults to `app/` and Vue to
 `src/`; inspect `ms-front-kit.json` and adjust paths for the actual project.
 The CLI reads configuration from the current directory, not parent directories.
-Install `sass` as a development dependency in projects using generated SCSS.
+`add styles` and `add composable useScroll` install `sass` as a development
+dependency. A project that only runs `add component` needs to install it itself,
+because generated components use SCSS.
 
 ## Project conventions and AI instructions
 
@@ -261,8 +262,16 @@ Automatic Nuxt setup supports a direct `export default defineNuxtConfig({...})`
 in exactly one root `nuxt.config.ts`, `.js`, or `.mjs`. Dynamic CSS expressions,
 config spreads/computed keys, and ambiguous Vue entries require manual setup.
 Linked target paths are refused. Configuration editing preserves existing source
-rather than reformatting the whole file. Sass is not installed automatically;
-the command prints `npm install --save-dev sass` when needed.
+rather than reformatting the whole file.
+
+Unless the project already declares `sass` or `sass-embedded` in `dependencies`,
+`devDependencies`, `peerDependencies`, or `optionalDependencies`, the command runs
+`npm install --save-dev sass`, because a clean
+project cannot build the SCSS without a compiler. That automatic install is
+npm-only: in a project with another package manager or no package.json, the command
+refuses before writing anything and names `--no-install`, which adds `sass` to
+package.json `devDependencies` instead (see
+[Installing without npm](#installing-without-npm)).
 
 The command also installs a development grid overlay; see below. You can also
 copy the foundation and register it manually as described below.
@@ -284,8 +293,8 @@ base/_focus.scss            site-wide :focus-visible ring from the focus tokens
 
 In Nuxt, merge `css: ["@/assets/scss/ms-front-kit/main.scss"]` into `nuxt.config.ts`
 (adjust for your directory). In Vite Vue, import `"./assets/scss/ms-front-kit/main.scss"` once
-from `src/main.ts` for the default `src/assets/scss` layout. Install `sass` as a
-dev dependency in the consuming project.
+from `src/main.ts` for the default `src/assets/scss` layout. Manual setup also needs
+`sass` as a dev dependency in the consuming project.
 
 Components import only `abstracts`, using `@use "abstracts" as *;` and calling
 helpers without a namespace. `add styles` configures a portable Vite alias using
@@ -404,24 +413,26 @@ as needed using `block__element` and `block--modifier`.
 
 ## Installing without npm
 
-`init` and `add composable` accept `--no-install`. It runs no package manager and
-needs no network. After the files are created, each package the command would
-otherwise install is added to package.json `dependencies`, so a plain `pnpm
+`init`, `add styles`, and `add composable` accept `--no-install`. It runs no
+package manager and needs no network. After the files are created, each package the
+command would otherwise install is added to package.json, so a plain `pnpm
 install`, `yarn`, `bun install`, or `npm install` fetches it:
 
-| Package | Range | Added by |
-| --- | --- | --- |
-| `gsap` | `^3.15.1` | Nuxt `init`, and `add composable` with `useRaf`, `useScrollNative`, `useScrollVirtual`, or `useScroll` |
-| `pinia` | `^4.1.0` | `add composable` with `useScrollBar`, `useScrollNative`, `useScrollVirtual`, or `useScroll` |
-| `@pinia/nuxt` | `^1.0.3` | The same composables as `pinia`, on Nuxt |
+| Package | Range | Section | Added by |
+| --- | --- | --- | --- |
+| `gsap` | `^3.15.1` | `dependencies` | Nuxt `init`, and `add composable` with `useRaf`, `useScrollNative`, `useScrollVirtual`, or `useScroll` |
+| `pinia` | `^4.1.0` | `dependencies` | `add composable` with `useScrollBar`, `useScrollNative`, `useScrollVirtual`, or `useScroll` |
+| `@pinia/nuxt` | `^1.0.3` | `dependencies` | The same composables as `pinia`, on Nuxt |
+| `sass` | `^1.106.1` | `devDependencies` | `add styles`, and `add composable useScroll` |
 
 An entry already in `dependencies`, `devDependencies`, `peerDependencies`, or
-`optionalDependencies` is never changed or duplicated.
-`dependencies` is written in the order npm uses, and the file keeps its
+`optionalDependencies` is never changed or duplicated, and a project declaring
+`sass-embedded` in any of them does not get `sass`. Each section is written in the
+order npm uses, and the file keeps its
 indentation and trailing newline. The command refuses to edit a package.json that
 is invalid or linked, or that changed while it ran. Without a package.json, none
-is created: the command prints the packages to add with their ranges. Packages the
-kit only mentions, such as `sass` and `vue-router`, are not added.
+is created: the command prints the packages to add with their ranges. `vue-router`
+is only mentioned and is not added, because it also needs manual registration.
 
 ## Development grid overlay
 
@@ -571,9 +582,10 @@ Generated imports between them are relative, so custom paths work without
 auto-import configuration. It then:
 
 - **Nuxt:** adds `"@pinia/nuxt"` to a literal `modules` array in nuxt.config and
-  installs `pinia @pinia/nuxt gsap` with npm when missing from package.json.
-- **Vue:** installs `pinia gsap` and prints how to register `createPinia()` when the
-  entry does not already do it. useScroll imports `useRoute` from vue-router;
+  installs `pinia @pinia/nuxt gsap` with npm, and `sass` as a dev dependency, when
+  missing from package.json.
+- **Vue:** installs `pinia gsap`, and `sass` as a dev dependency, and prints how to
+  register `createPinia()` when the entry does not already do it. useScroll imports `useRoute` from vue-router;
   install and register it if the project has none.
 - Wraps the app shell's single `<NuxtLayout>` (or `<NuxtPage>`) / `<RouterView>`
   with `<Scroll>` using an explicit import. Existing mounts are preserved;

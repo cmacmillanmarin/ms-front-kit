@@ -62,6 +62,7 @@
     "template": "useScroll.ts.tpl",
     "dependencies": ["useResize", "useDevice", "useRaf", "useScrollLock", "useScrollNative", "useScrollVirtual", "useScrollBar"],
     "store": "useScrollStore",
+    "packages": { "nuxt": ["sass"], "vue": ["sass"] },
     "component": { "name": "Scroll", "template": "scroll/Index.vue.tpl", "docs": "scroll/README.md.tpl" },
     "imports": {
       "vue": ["nextTick", "onBeforeUnmount", "watch"],

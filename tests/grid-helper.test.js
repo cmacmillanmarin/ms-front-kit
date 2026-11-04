@@ -35,7 +35,7 @@ for (const framework of ['nuxt', 'vue']) {
     const { root, app, config } = await project(t, framework, true);
     const source = '<script setup lang="ts">\n// keep project logic\nconst title = "Hello";\n</script>\n<template><div class="project"><h1>{{ title }}</h1></div></template>\n<style>.project { color: red; }</style>\n';
     await writeFile(path.join(root, app), source);
-    const message = await run(['add', 'styles'], root);
+    const message = await run(['add', 'styles', '--no-install'], root);
     const helper = path.join(root, config.paths.components, 'Helper/Grid.vue');
     assert.equal(await readFile(helper, 'utf8'), await readFile(templateFile, 'utf8'));
     const updated = await readFile(path.join(root, app), 'utf8');
@@ -49,10 +49,10 @@ for (const framework of ['nuxt', 'vue']) {
     assert.doesNotMatch(updated, /MsFrontKit|msFrontKit/);
     assert.match(message, /development mode only/);
     assert.deepEqual(parse(updated).errors, []);
-    await run(['add', 'styles'], root);
+    await run(['add', 'styles', '--no-install'], root);
     assert.equal(await readFile(path.join(root, app), 'utf8'), updated);
     await writeFile(helper, 'customized helper');
-    await run(['add', 'styles'], root);
+    await run(['add', 'styles', '--no-install'], root);
     assert.equal(await readFile(helper, 'utf8'), 'customized helper');
   });
 }
@@ -64,7 +64,7 @@ test('existing HelperGrid and guarded mount, including Html root, are preserved'
   await writeFile(helper, 'project-owned grid');
   const source = '<script setup lang="ts">const isDev = import.meta.dev;</script>\n<template><Html><NuxtLayout><NuxtPage /></NuxtLayout><HelperGrid v-if="isDev" /></Html></template>';
   await writeFile(path.join(root, app), source);
-  await run(['add', 'styles'], root);
+  await run(['add', 'styles', '--no-install'], root);
   assert.equal(await readFile(helper, 'utf8'), 'project-owned grid');
   assert.equal(await readFile(path.join(root, app), 'utf8'), source);
 });
@@ -79,7 +79,7 @@ for (const framework of ['nuxt', 'vue']) {
     const { root, app } = await project(t, framework);
     const source = `<script setup lang="ts">\nimport MsFrontKitGrid from "./components/Helper/Grid.vue";\nconst msFrontKitDev = ${framework === 'nuxt' ? 'import.meta.dev' : 'import.meta.env.DEV'};\n</script>\n<template>\n  <main />\n  <MsFrontKitGrid v-if="msFrontKitDev" />\n</template>\n`;
     await writeFile(path.join(root, app), source);
-    assert.match(await run(['add', 'styles'], root), /Existing grid helper mount preserved/);
+    assert.match(await run(['add', 'styles', '--no-install'], root), /Existing grid helper mount preserved/);
     assert.equal(await readFile(path.join(root, app), 'utf8'), source);
   });
 }
@@ -94,7 +94,7 @@ for (const [label, source] of [
   test(`${label} goes to manual instructions instead of a duplicate declaration`, async t => {
     const { root, app } = await project(t);
     await writeFile(path.join(root, app), source);
-    const message = await run(['add', 'styles'], root);
+    const message = await run(['add', 'styles', '--no-install'], root);
     assert.equal(await readFile(path.join(root, app), 'utf8'), source);
     assert.match(message, /already uses a grid integration binding name[\s\S]*Mount it manually[\s\S]*<HelperGrid v-if="isDev" \/>/);
   });
@@ -109,7 +109,7 @@ test('Html roots get the overlay inside Html, not in layout slots', () => {
 
 test('missing app is created without depending on Nuxt auto-import scanning', async t => {
   const { root, app } = await project(t);
-  await run(['add', 'styles'], root);
+  await run(['add', 'styles', '--no-install'], root);
   const source = await readFile(path.join(root, app), 'utf8');
   assert.match(source, /import HelperGrid from ".\/components\/Helper\/Grid.vue"/);
   assert.match(source, /<NuxtPage \/>/);
@@ -120,7 +120,7 @@ test('unsupported app templates are preserved with manual integration instructio
   const { root, app } = await project(t);
   const source = '<template src="./external.html"></template>';
   await writeFile(path.join(root, app), source);
-  const message = await run(['add', 'styles'], root);
+  const message = await run(['add', 'styles', '--no-install'], root);
   assert.equal(await readFile(path.join(root, app), 'utf8'), source);
   assert.match(message, /Mount it manually/);
   assert.match(message, /import.meta.dev/);
@@ -135,7 +135,7 @@ test('linked helper or app paths stop before styles or config edits', async t =>
     await writeFile(path.join(root, 'target.vue'), '<template><div /></template>');
     await symlink(path.join(root, 'target.vue'), path.join(root, file));
     const before = await readFile(path.join(root, 'nuxt.config.ts'), 'utf8');
-    await assert.rejects(run(['add', 'styles'], root), /linked/);
+    await assert.rejects(run(['add', 'styles', '--no-install'], root), /linked/);
     assert.equal(await readFile(path.join(root, 'nuxt.config.ts'), 'utf8'), before);
     await assert.rejects(readFile(path.join(root, config.paths.styles, 'ms-front-kit/main.scss')), { code: 'ENOENT' });
   }

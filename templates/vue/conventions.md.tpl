@@ -23,8 +23,9 @@ manual setup. Review custom component/composable scanning separately. Existing
 config or plugin files are not overwritten. `--no-install` runs no package manager and adds gsap to
 package.json dependencies instead; run a plain install with the project's package
 manager before running the app. `add composable --no-install` does the same for the
-packages it would install, leaving existing entries untouched. Vue init remains
-config-only; do not copy a Nuxt plugin into a plain Vue application.
+packages it would install, except that sass goes to devDependencies, leaving existing
+entries untouched. Vue init remains config-only; do not copy a Nuxt plugin into a
+plain Vue application.
 
 The client plugin prints the studio credit, registers GSAP CustomEase, and defines
 an example named `ms-ease`. GSAP defaults are duration 0.8 seconds and ease
@@ -102,8 +103,8 @@ This example is rendered directly from the same template as the generator:
 
 ## Styling
 
-- Use SCSS for generated component styles. The project needs `sass` as a
-  development dependency.
+- Use SCSS for generated component styles. The project needs `sass` or
+  `sass-embedded` as a development dependency.
 - The kit foundation lives in `{{stylesPath}}/ms-front-kit/`, separate from
   existing project files. Run `ms-front-kit add styles` from
   the project root to copy the foundation and register its entry in Nuxt or Vue.
@@ -116,9 +117,12 @@ This example is rendered directly from the same template as the generator:
   config. Existing plugins, aliases, and comments are preserved. A missing Vue
   Vite config is created. Dynamic config objects, array-form aliases, CommonJS
   Vite configs, and conflicting abstracts aliases require manual setup and stop
-  installation before changes. Dynamic Nuxt config expressions require the manual setup below. It prints a
-  Sass installation command if no compiler is declared; it does not install dependencies.
-- Install the compiler with `npm install --save-dev sass`.
+  installation before changes. Dynamic Nuxt config expressions require the manual setup below.
+- If no compiler is declared, `ms-front-kit add styles` runs
+  `npm install --save-dev sass`. `--no-install` runs no package manager and adds
+  `sass` to package.json `devDependencies` instead; run a plain install with the
+  project's package manager before running the app. Without `--no-install`, the
+  command refuses in a project that does not use npm.
 - `main.scss` emits global CSS and must be included once. `abstracts/_index.scss`
   exposes variables, `rem()`, and the `font-size`, `from`, and `type` mixins
   without emitting CSS.

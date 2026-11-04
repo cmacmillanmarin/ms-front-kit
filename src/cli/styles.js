@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { planGridHelper } from './grid-helper.js';
+import { assertNpm, declarePackages, missingPackages, npmInstall, npmInstallCommand, planPackages, readPackage } from './packages.js';
 
 export async function readOptional(file) {
   try { return await readFile(file, 'utf8'); }
@@ -171,7 +172,7 @@ async function templates(directory, prefix = '') {
   return results;
 }
 
-export async function addStyles(root, config, safeDirectory) {
+export async function addStyles(root, config, safeDirectory, { install = true, installDependencies = npmInstall } = {}) {
   // Preflight integration and every target before copying or editing files.
   await checkPath(root, 'ms-front-kit.json');
   const configFile = path.join(root, 'ms-front-kit.json');
@@ -198,8 +199,9 @@ export async function addStyles(root, config, safeDirectory) {
   if (existingFont !== null && !existingFont.equals(font)) {
     throw new Error(`${fontPath} already exists and differs. No files were changed.`);
   }
-  const packageSource = await readOptional(path.join(root, 'package.json'));
-  const pkg = packageSource ? JSON.parse(packageSource) : {};
+  const declaration = install ? null : await planPackages(root, ['sass']);
+  const missing = install ? missingPackages(await readPackage(root), ['sass']) : [];
+  if (missing.length) await assertNpm(root);
   for (const file of pending) {
     const directory = await safeDirectory(root, path.dirname(file.relative));
     await writeFile(path.join(directory, path.basename(file.relative)), file.contents, { flag: 'wx' });
@@ -223,6 +225,15 @@ export async function addStyles(root, config, safeDirectory) {
     updatedConfig.styles.grid = true;
     await writeFile(configFile, `${JSON.stringify(updatedConfig, null, 2)}\n`);
   }
-  const sass = pkg.dependencies?.sass || pkg.devDependencies?.sass || pkg.dependencies?.['sass-embedded'] || pkg.devDependencies?.['sass-embedded'];
-  return `${pending.length ? `Copied ${pending.length} SCSS files` : 'SCSS files are already installed'}. ${existingFont === null ? 'Copied example font' : 'Example font already installed'}. ${edits.every(edit => edit.updated === edit.source) ? 'Stylesheet entry and abstracts alias already exist' : `Updated ${edits.filter(edit => edit.updated !== edit.source).map(edit => edit.file).join(', ')}`}.\n${grid.message}${sass ? '' : '\nInstall the compiler: npm install --save-dev sass'}`;
+  const summary = `${pending.length ? `Copied ${pending.length} SCSS files` : 'SCSS files are already installed'}. ${existingFont === null ? 'Copied example font' : 'Example font already installed'}. ${edits.every(edit => edit.updated === edit.source) ? 'Stylesheet entry and abstracts alias already exist' : `Updated ${edits.filter(edit => edit.updated !== edit.source).map(edit => edit.file).join(', ')}`}.\n${grid.message}`;
+  if (missing.length) {
+    try { await installDependencies(root, missing); }
+    catch (error) {
+      throw new Error(`${summary}\nStyles were installed, but installing sass failed. Review package.json and the lockfile, then run ${npmInstallCommand(missing)}. ${error.stderr || error.message}`);
+    }
+    return `${summary}\nInstalled sass with npm.`;
+  }
+  if (!declaration?.add.length) return summary;
+  try { return `${summary}\n${await declarePackages(root, declaration)}`; }
+  catch (error) { throw new Error(`${summary}\nStyles were installed, but sass was not declared. ${error.message}`); }
 }

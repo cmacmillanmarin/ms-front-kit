@@ -15,17 +15,19 @@ Run from the project root:
   ms-front-kit add component ProductCard
   ms-front-kit add component Home/Hero/BackButton
   ms-front-kit add conventions
-  ms-front-kit add styles
+  ms-front-kit add styles [--no-install]
   ms-front-kit add composable useResize|useDevice|useRaf|useScroll [--no-install]
 
 Creates project-owned files; preserves customized files.
 add composable useScroll also creates the Pinia scroll store, its types, and
-the Scroll component, mounts it in the app shell, and installs Pinia and GSAP
-with npm.
+the Scroll component, mounts it in the app shell, and installs Pinia, GSAP, and
+Sass with npm.
 --no-install runs no package manager: it adds the packages to package.json
-dependencies instead, for a later plain install with any package manager.
-add styles also registers global CSS, configures the abstracts alias,
-and installs a development-only Helper/Grid.vue overlay in the app shell.
+instead, for a later plain install with any package manager. Sass goes to
+devDependencies, the others to dependencies.
+add styles also registers global CSS, configures the abstracts alias, installs
+a development-only Helper/Grid.vue overlay in the app shell, and installs Sass
+with npm unless the project already declares sass or sass-embedded.
 React and Astro are not implemented yet.`;
 
 async function loadConfig(root) {
@@ -89,8 +91,9 @@ export async function run(args, root = process.cwd()) {
     if (args.length === 4 && args[3] !== '--no-install') throw new Error('Usage: ms-front-kit add composable useScroll [--no-install]');
     return addComposable(root, await loadConfig(root), args[2], safeDirectory, { install: args.length === 3 });
   }
-  if (args.length === 2 && args[0] === 'add' && args[1] === 'styles') {
-    return addStyles(root, await loadConfig(root), safeDirectory);
+  if ([2, 3].includes(args.length) && args[0] === 'add' && args[1] === 'styles') {
+    if (args.length === 3 && args[2] !== '--no-install') throw new Error('Usage: ms-front-kit add styles [--no-install]');
+    return addStyles(root, await loadConfig(root), safeDirectory, { install: args.length === 2 });
   }
   if (args.length === 2 && args[0] === 'add' && args[1] === 'conventions') {
     return addConventions(root, await loadConfig(root), safeDirectory);
