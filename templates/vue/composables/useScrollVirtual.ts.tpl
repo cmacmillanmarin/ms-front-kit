@@ -229,7 +229,6 @@ export default function useScrollVirtual() {
       speed: round(Math.abs(target - current)),
       direction,
       bounding,
-      progress: bounding > 0 ? position / bounding : 0,
       inTarget: Math.abs(target - current) < 0.1,
     })
   }

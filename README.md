@@ -267,7 +267,7 @@ main.scss                   global entry, include once
 abstracts/_index.scss       CSS-free public Sass tools
 abstracts/_variables.scss   $design-root-size, editable fonts, breakpoint and typography maps
 abstracts/_functions.scss   rem() conversion from px design values
-abstracts/_mixins.scss      font-size(), from(), type(), with token validation; focusable(), focusable-inverted()
+abstracts/_mixins.scss      font-size(), from(), type(), with token validation
 base/_reset.scss            minimal normalization, native focus/controls preserved
 base/_tokens.scss           runtime CSS custom properties
 base/_fonts.scss            example font registration used by typography tokens
@@ -552,11 +552,11 @@ auto-import configuration. It then:
 - When `add styles` already ran, adds `--vh: 100svh;` at the start of `:root` in
   `ms-front-kit/base/_tokens.scss` unless a `--vh` is already defined (an existing
   value is kept). Without installed styles, Scroll falls back to `100svh`.
-- When `add styles` already ran, also adds `--focus-size`, `--focus-offset`,
-  `--color-focus`, and `--color-focus-inverted` unless the installed base styles
-  already define them. Without installed styles, Scroll draws its own focus rings
-  with a 2px `currentcolor` fallback; `add styles` adds the tokens and the
-  site-wide ring.
+- Scroll draws its own focus rings, with a 2px `currentcolor` fallback when
+  `--focus-size` and `--color-focus` are not defined. `add styles` installs the
+  focus tokens and the site-wide ring. Styles installed earlier do not get them:
+  when their `base/_tokens.scss` lacks `--focus-size`, `--focus-offset`, or
+  `--color-focus`, the command prints the missing tokens as a suggestion.
 
 Use `--no-install` to skip npm and install with your package manager; automatic
 installation uses the same npm-only checks as init. Repeat runs skip existing
@@ -627,10 +627,9 @@ watch(() => scroll.data, data => { /* scroll-driven work */ }, { flush: "sync" }
 ```
 
 `store.data` holds `{ current, currentVertical, speed, direction, bounding,
-progress, inTarget }`, replaced once per scroll frame. Read it in sync watchers,
-which run only while the position changes, or in a useRaf ticker for work that
-must run every frame, rather than in template bindings; `store.progress` is a
-two-decimal string safe to bind. While disabled, elements with
+inTarget }`, replaced once per scroll frame. Read it in sync watchers, which run
+only while the position changes, or in a useRaf ticker for work that must run
+every frame, rather than in template bindings. While disabled, elements with
 `data-scroll-lock-allow` (modals, menus) keep scrolling internally without
 chaining to the page.
 

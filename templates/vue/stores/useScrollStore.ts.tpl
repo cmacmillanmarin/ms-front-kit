@@ -13,12 +13,9 @@ export default defineStore('scroll', () => {
     speed: 0,
     direction: 'down',
     bounding: 0,
-    progress: 0,
     inTarget: true,
   })
   const isVirtual = computed<boolean>(() => activeMode.value === 'virtual')
-  // Two decimals: consumers only update when the rounded value changes.
-  const progress = computed<string>(() => data.value.progress.toFixed(2))
 
   // Not state: never serialized, proxied, or exposed reactively.
   let controller: ScrollController | undefined
@@ -64,7 +61,6 @@ export default defineStore('scroll', () => {
     disabled,
     data,
     isVirtual,
-    progress,
     setMode,
     setActiveMode,
     disable,

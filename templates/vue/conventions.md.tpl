@@ -116,8 +116,7 @@ This example is rendered directly from the same template as the generator:
   Sass installation command if no compiler is declared; it does not install dependencies.
 - Install the compiler with `npm install --save-dev sass`.
 - `main.scss` emits global CSS and must be included once. `abstracts/_index.scss`
-  exposes variables, `rem()`, and the `font-size`, `from`, `type`, `focusable`,
-  and `focusable-inverted` mixins
+  exposes variables, `rem()`, and the `font-size`, `from`, and `type` mixins
   without emitting CSS.
 - The reset only normalizes box sizing, body margin, and form-control fonts.
   It deliberately preserves native headings, lists, and links. `base/_focus.scss`
@@ -488,7 +487,7 @@ Components that add animation or smooth scrolling must consider
 - Read scroll values inside `watch(() => store.data, ..., { flush: "sync" })` or
   a useRaf ticker, not through template bindings on `store.data`, which changes
   every scroll frame. Sync watchers do not run at rest; use a ticker for work that
-  must run every frame. Bind the store's `progress` to show page progress.
+  must run every frame.
 - Call the store's `update()` after layout changes ResizeObserver cannot see
   (for example, transforms or late class toggles), and `reset()` after page
   transitions finish. Mark scrollable modals with `data-scroll-lock-allow`.

@@ -1,4 +1,3 @@
-import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { parse, compileScript } from '@vue/compiler-sfc';
 import ts from 'typescript';
@@ -106,48 +105,31 @@ export function updateNuxtModules(source, moduleName) {
   return { updated: source.slice(0, at) + JSON.stringify(moduleName) + (array.elements.length ? ', ' : '') + source.slice(at), note: `Registered ${moduleName} in Nuxt modules.` };
 }
 
-// Inserts lines at the start of the single :root block; null when there is not exactly one.
-function prependToRoot(source, lines) {
-  const roots = [...source.matchAll(/^([ \t]*):root\s*\{[ \t]*\n/gm)];
-  if (roots.length !== 1) return null;
-  const [match, indent] = roots[0];
-  const at = roots[0].index + match.length;
-  const text = lines.map(line => `${indent}  ${line}\n`).join('');
-  return `${source.slice(0, at)}${text}\n${source.slice(at)}`;
-}
-
 // Adds the --vh token to an installed kit tokens file (first declaration in :root).
 export function addViewportToken(source) {
+  const manual = reason => ({ updated: source, note: `--vh token: ${reason}. Add --vh: 100svh; to :root in base/_tokens.scss manually; Scroll falls back to 100svh.` });
   if (/--vh\s*:/.test(source)) return { updated: source, note: '--vh token already defined; existing value preserved.' };
-  const updated = prependToRoot(source, ['// Stable viewport height: small viewport (browser toolbars expanded).', '--vh: 100svh;']);
-  if (updated === null) return { updated: source, note: '--vh token: expected exactly one :root block. Add --vh: 100svh; to :root in base/_tokens.scss manually; Scroll falls back to 100svh.' };
-  return { updated, note: 'Added --vh: 100svh to base/_tokens.scss.' };
+  const roots = [...source.matchAll(/^([ \t]*):root\s*\{[ \t]*\n/gm)];
+  if (roots.length !== 1) return manual('expected exactly one :root block');
+  const [match, indent] = roots[0];
+  const at = roots[0].index + match.length;
+  const token = `${indent}  // Stable viewport height: small viewport (browser toolbars expanded).\n${indent}  --vh: 100svh;\n\n`;
+  return { updated: source.slice(0, at) + token + source.slice(at), note: 'Added --vh: 100svh to base/_tokens.scss.' };
 }
 
-const focusTokens = [['--focus-size', '2px'], ['--focus-offset', '2px'], ['--color-focus', 'currentcolor'], ['--color-focus-inverted', '#fff']];
+const focusTokens = [['--focus-size', '2px'], ['--focus-offset', '2px'], ['--color-focus', 'currentcolor']];
 
-// Adds the focus tokens an installed kit tokens file lacks. `elsewhere` is the
-// other base styles: a project may define these colors in its own palette file.
-export function addFocusTokens(source, elsewhere = '') {
-  const missing = focusTokens.filter(([name]) => !new RegExp(`${name}\\s*:`).test(`${source}\n${elsewhere}`));
-  if (!missing.length) return { updated: source, note: 'Focus tokens already defined; existing values preserved.' };
-  const declarations = missing.map(([name, value]) => `${name}: ${value};`);
-  const updated = prependToRoot(source, ['// Keyboard focus ring: base/_focus.scss, the focusable mixins, and Scroll.', ...declarations]);
-  if (updated === null) return { updated: source, note: `Focus tokens: expected exactly one :root block. Add ${declarations.join(' ')} to :root in base/_tokens.scss manually; Scroll falls back to a 2px currentcolor ring.` };
-  return { updated, note: `Added ${missing.map(([name]) => name).join(', ')} to base/_tokens.scss.` };
+// Installed styles belong to the project, so the tokens they lack are only suggested.
+function focusTokensNote(source) {
+  const missing = focusTokens.filter(([name]) => !new RegExp(`${name}\\s*:`).test(source));
+  if (!missing.length) return null;
+  const declarations = missing.map(([name, value]) => `${name}: ${value};`).join(' ');
+  return `Focus tokens: installed styles were left as they are, and Scroll falls back to a 2px currentcolor ring. To set your own, add ${declarations} to :root in base/_tokens.scss.`;
 }
 
 function relativeImport(fromDirectory, file) {
   const relative = path.posix.relative(fromDirectory, file);
   return relative.startsWith('.') ? relative : `./${relative}`;
-}
-
-async function otherStyles(root, directory, readOptional) {
-  let names;
-  try { names = await readdir(path.join(root, directory)); }
-  catch (error) { if (error.code === 'ENOENT') return ''; throw error; }
-  const sources = await Promise.all(names.filter(name => name.endsWith('.scss') && name !== '_tokens.scss').map(name => readOptional(path.join(root, directory, name))));
-  return sources.join('\n');
 }
 
 // Plans app-shell and configuration edits; nothing is written here.
@@ -193,12 +175,11 @@ export async function planScrollSetup(root, config, componentFile, checkPath, re
   await checkPath(root, tokensFile);
   const tokens = await readOptional(path.join(root, tokensFile));
   if (tokens !== null) {
-    const elsewhere = await otherStyles(root, baseStyles, readOptional);
-    // Focus first: --vh then stays the first declaration, as in the kit's tokens.
-    const focus = addFocusTokens(tokens, elsewhere);
-    const viewport = addViewportToken(focus.updated);
-    if (viewport.updated !== tokens) edits.push({ file: tokensFile, source: tokens, updated: viewport.updated });
-    notes.push(viewport.note, focus.note);
+    const result = addViewportToken(tokens);
+    if (result.updated !== tokens) edits.push({ file: tokensFile, source: tokens, updated: result.updated });
+    notes.push(result.note);
+    const focusNote = focusTokensNote(tokens);
+    if (focusNote) notes.push(focusNote);
     const focusFile = path.posix.join(baseStyles, '_focus.scss');
     await checkPath(root, focusFile);
     if (await readOptional(path.join(root, focusFile)) === null) {

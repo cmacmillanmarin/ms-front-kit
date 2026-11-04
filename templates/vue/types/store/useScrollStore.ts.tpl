@@ -9,8 +9,6 @@ export interface Data {
   speed: number
   direction: Direction
   bounding: number
-  // Page progress: 0 at the top, 1 at the end of the scroll.
-  progress: number
   inTarget: boolean
 }
 

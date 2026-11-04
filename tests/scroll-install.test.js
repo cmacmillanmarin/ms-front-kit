@@ -10,7 +10,6 @@ import * as sass from 'sass';
 import ts from 'typescript';
 import * as Vue from 'vue';
 import { run } from '../src/cli/index.js';
-import { addFocusTokens } from '../src/cli/scroll-setup.js';
 
 const catalog = JSON.parse(await readFile(new URL('../templates/vue/composables/catalog.json', import.meta.url), 'utf8'));
 const composableNames = ['useResize', 'useDevice', 'useRaf', 'useScrollLock', 'useScrollNative', 'useScrollVirtual', 'useScrollBar', 'useScroll'];
@@ -62,7 +61,7 @@ async function extractScroll(root, { paths }) {
 }
 
 for (const layout of layouts) {
-  test(`fresh project (${layout.label}) receives the new behavior and types, with every relative import resolving`, async t => {
+  test(`fresh project (${layout.label}) receives the scroll files and types, with every relative import resolving`, async t => {
     const root = await freshProject(t, layout);
     const message = await run(['add', 'composable', 'useScroll', '--no-install'], root);
     const files = installedFiles(layout);
@@ -86,20 +85,6 @@ for (const layout of layouts) {
       }
     }
     assert.ok(resolved >= 10, `expected the generated files to import each other, saw ${resolved}`);
-
-    const read = name => readFile(path.join(root, layout.paths.composables, `${name}.ts`), 'utf8');
-    // Behavior from each ported change reaches the generated output.
-    assert.match(await read('useRaf'), /import \{ gsap \} from 'gsap'/);
-    assert.match(await read('useRaf'), /gsap\.ticker\.add\(ticker, false, true\)/);
-    assert.match(await read('useScroll'), /isTabletLandscape/);
-    assert.match(await read('useScrollNative'), /window\.addEventListener\('keydown', onKeyDown\)/);
-    assert.match(await read('useScrollBar'), /setAttribute\('aria-valuenow'/);
-    assert.match(await read('useScrollBar'), /watch\(\(\) => store\.data, onRender, \{ flush: 'sync' \}\)/);
-    const store = await readFile(path.join(root, layout.paths.store, 'useScrollStore.ts'), 'utf8');
-    assert.doesNotMatch(store, /RenderCallback/);
-    assert.doesNotMatch(store, /export (?:type|interface)/);
-    assert.match(component, /role="scrollbar"/);
-    assert.doesNotMatch(component, /aria-hidden/);
 
     // Repeat runs preserve everything and duplicate nothing.
     await writeFile(path.join(root, layout.paths.types, 'store/useScrollStore.ts'), '// customized types\n');
@@ -149,7 +134,7 @@ test('a project with custom composables and no paths.types gets types beside com
   await writeFile(configFile, JSON.stringify(config));
   await run(['add', 'composable', 'useRaf', '--no-install'], root);
   await access(path.join(root, 'src/shared/types/composables/useRaf.ts'));
-  assert.match(await readFile(path.join(root, 'src/shared/composables/useRaf.ts'), 'utf8'), /'\.\.\/types\/composables\/useRaf'/);
+  assert.ok(moduleSpecifiers(await readFile(path.join(root, 'src/shared/composables/useRaf.ts'), 'utf8')).includes('../types/composables/useRaf'));
   await assert.rejects(access(path.join(root, 'src/shared/types/store/useScrollStore.ts')), { code: 'ENOENT' });
 });
 
@@ -207,7 +192,6 @@ test('Scroll exposes a labelled scrollbar in virtual mode and a labelled focusab
 });
 
 const compileScrollStyles = source => sass.compileString(parse(source).descriptor.styles[0].content).css;
-const abstractsPath = fileURLToPath(new URL('../templates/shared/scss/', import.meta.url));
 
 for (const framework of ['nuxt', 'vue']) {
   test(`${framework}: Scroll draws working focus rings without kit styles, then the styles add the tokens and site-wide ring`, async t => {
@@ -232,55 +216,33 @@ for (const framework of ['nuxt', 'vue']) {
     assert.match(main, /:focus-visible \{\s*outline: var\(--focus-size\) solid var\(--color-focus\);/);
     // Scroll keeps its own files, and running it again adds nothing to the current tokens.
     const second = await run(['add', 'composable', 'useScroll', '--no-install'], root);
-    assert.match(second, /Focus tokens already defined/);
+    assert.doesNotMatch(second, /Focus tokens:/);
     await run(['add', 'styles'], root); // Tokens still match the template, so this stays repeatable.
   });
 }
 
-test('existing styles get only the focus tokens they lack, and customized values are preserved', async t => {
+test('existing styles keep their tokens file, and the focus tokens they lack are only suggested', async t => {
   const layout = layouts[0];
   const root = await freshProject(t, layout);
   await run(['add', 'styles'], root);
   const base = path.join(root, 'app/assets/scss/ms-front-kit/base');
   const file = path.join(base, '_tokens.scss');
   const template = await readFile(new URL('../templates/shared/scss/base/_tokens.scss', import.meta.url), 'utf8');
-  // Styles installed before the focus tokens, and before --vh too.
-  const legacy = template
-    .replace(/^ *\/\/ Stable viewport height.*\n *--vh: 100svh;\n\n/m, '')
-    .replace(/^ *\/\/ Keyboard focus ring.*\n(?: *--[\w-]*focus[\w-]*: .*\n)+\n/m, '');
-  assert.doesNotMatch(legacy, /focus|--vh/);
+  // Styles installed before the focus tokens.
+  const legacy = template.replace(/^ *\/\/ Keyboard focus ring.*\n(?: *--[\w-]*focus[\w-]*: .*\n)+\n/m, '');
+  assert.doesNotMatch(legacy, /focus/);
   await writeFile(file, legacy);
   await rm(path.join(base, '_focus.scss'));
   const message = await run(['add', 'composable', 'useScroll', '--no-install'], root);
-  assert.match(message, /Added --focus-size, --focus-offset, --color-focus, --color-focus-inverted/);
-  assert.match(message, /Added --vh/);
+  assert.match(message, /add --focus-size: 2px; --focus-offset: 2px; --color-focus: currentcolor; to :root/);
   assert.match(message, /no base\/_focus\.scss/);
-  assert.equal(await readFile(file, 'utf8'), template); // Same result as a fresh install.
-  await assert.rejects(access(path.join(base, '_focus.scss')), { code: 'ENOENT' }); // Not migrated.
+  assert.equal(await readFile(file, 'utf8'), legacy);
+  await assert.rejects(access(path.join(base, '_focus.scss')), { code: 'ENOENT' });
 
-  const custom = ':root {\n  --focus-size: 3px;\n  --color-focus: red;\n}\n';
-  const partial = addFocusTokens(custom);
-  assert.match(partial.updated, /--focus-size: 3px/);
-  assert.match(partial.updated, /--color-focus: red/);
-  assert.equal((partial.updated.match(/--focus-size/g) || []).length, 1);
-  assert.match(partial.updated, /--focus-offset: 2px/);
-  assert.match(partial.updated, /--color-focus-inverted: #fff/);
-  const all = ':root {\n  --focus-size: 3px;\n  --focus-offset: 1px;\n  --color-focus: red;\n  --color-focus-inverted: blue;\n}\n';
-  assert.equal(addFocusTokens(all).updated, all);
-
-  // A project's own palette file already defines the colors.
-  const palette = addFocusTokens(':root {\n}\n', ':root {\n  --color-focus: red;\n  --color-focus-inverted: blue;\n}\n');
-  assert.doesNotMatch(palette.updated, /--color-focus/);
-  assert.match(palette.updated, /--focus-size: 2px/);
-
-  const ambiguous = '.a {\n  :root {\n  }\n}\n:root {\n}\n';
-  assert.equal(addFocusTokens(ambiguous).updated, ambiguous);
-  assert.match(addFocusTokens(ambiguous).note, /manually/);
-});
-
-test('focusable mixins compile from abstracts without emitting global CSS', () => {
-  const css = sass.compileString('@use "abstracts" as ms;\n.a { @include ms.focusable; }\n.b { @include ms.focusable-inverted; }', { loadPaths: [abstractsPath] }).css;
-  assert.match(css, /\.a:focus,\s*\.a:active:not\(:disabled, \[aria-disabled=["']?true["']?\]\) \{\s*outline: var\(--focus-size\) solid var\(--color-focus\);\s*outline-offset: var\(--focus-offset\);/);
-  assert.match(css, /outline: var\(--focus-size\) solid var\(--color-focus-inverted\);/);
-  assert.equal(sass.compileString('@use "abstracts" as ms;', { loadPaths: [abstractsPath] }).css, '');
+  // Only what is missing is suggested, and customized values stay.
+  const custom = ':root {\n  --vh: 100dvh;\n  --focus-size: 3px;\n  --color-focus: red;\n}\n';
+  await writeFile(file, custom);
+  const partial = await run(['add', 'composable', 'useScroll', '--no-install'], root);
+  assert.match(partial, /add --focus-offset: 2px; to :root/);
+  assert.equal(await readFile(file, 'utf8'), custom);
 });

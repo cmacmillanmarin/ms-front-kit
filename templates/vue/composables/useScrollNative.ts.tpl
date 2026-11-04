@@ -114,8 +114,6 @@ export default function useScrollNative() {
       speed: round(Math.abs(target - current)),
       direction,
       bounding,
-      // Clamped: overscroll bounce can take the position past the limits.
-      progress: bounding > 0 ? Math.max(0, Math.min(position / bounding, 1)) : 0,
       inTarget: Math.abs(target - current) < 0.1,
     })
   }

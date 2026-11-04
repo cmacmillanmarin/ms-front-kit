@@ -566,7 +566,7 @@ test('scrollbar sizes and follows the thumb, drags, pages toward held clicks, ju
   const store = mount(t, () => useScrollStore(), app => app.use(pinia)).value;
   // A virtual engine stand-in: scrollTo jumps and reports through the store.
   const targets = [];
-  const data = current => ({ current, currentVertical: current, speed: 0, direction: 'down', bounding: 3200, progress: current / 3200, inTarget: true });
+  const data = current => ({ current, currentVertical: current, speed: 0, direction: 'down', bounding: 3200, inTarget: true });
   store.register({ to: (value, options) => { targets.push([value, options]); store.setData(data(value)); }, update() {}, reset() {} });
   store.setData(data(0));
   const useScrollBar = await load('composables/useScrollBar.ts.tpl', {}, { './store/useScrollStore': { default: useScrollStore } });
@@ -673,7 +673,7 @@ test('scrollbar sizes and follows the thumb, drags, pages toward held clicks, ju
   assert.equal(timers.size, 0);
 });
 
-test('scroll store delegates to the registered controller and exposes page progress', async t => {
+test('scroll store delegates to the registered controller and reports data to sync watchers', async t => {
   const useScrollStore = await load('stores/useScrollStore.ts.tpl');
   const pinia = Pinia.createPinia();
   const { value: store } = mount(t, () => useScrollStore(), app => app.use(pinia));
@@ -688,11 +688,9 @@ test('scroll store delegates to the registered controller and exposes page progr
   assert.equal(calls.length, 3);
   assert.equal(store.addRenderCallback, undefined);
   assert.equal(store.removeRenderCallback, undefined);
-  assert.equal(store.progress, '0.00');
   const seen = [];
   const stop = Vue.watch(() => store.data, data => seen.push(data.current), { flush: 'sync' });
-  store.setData({ current: 42, currentVertical: 42, speed: 0, direction: 'down', bounding: 100, progress: 0.42, inTarget: true });
+  store.setData({ current: 42, currentVertical: 42, speed: 0, direction: 'down', bounding: 100, inTarget: true });
   assert.deepEqual(seen, [42]); // Same frame as the update.
-  assert.equal(store.progress, '0.42');
   stop();
 });

@@ -4,11 +4,10 @@
   // Stable viewport height: small viewport (browser toolbars expanded).
   --vh: 100svh;
 
-  // Keyboard focus ring: base/_focus.scss, the focusable mixins, and Scroll.
+  // Keyboard focus ring: base/_focus.scss and Scroll.
   --focus-size: 2px;
   --focus-offset: 2px;
   --color-focus: currentcolor;
-  --color-focus-inverted: #fff;
 
   // Example palette only. Replace with each project's colors.
   --color-primary: #000;

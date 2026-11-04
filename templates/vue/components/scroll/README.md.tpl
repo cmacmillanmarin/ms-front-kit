@@ -176,7 +176,6 @@ prioritized ticker could end up before it.
 | `isVirtual` | `boolean` | `activeMode === "virtual"`. |
 | `disabled` | `boolean` | Scroll locked. |
 | `data` | `Data` | Latest values, replaced on every scroll frame. |
-| `progress` | `string` | `data.progress` with two decimals (`"0.42"`). |
 
 `Data`:
 
@@ -187,13 +186,11 @@ prioritized ticker could end up before it.
 | `speed` | Remaining distance to the target in px (`0` at rest). |
 | `direction` | `"up"` or `"down"`. |
 | `bounding` | Maximum scroll position (content height minus viewport). |
-| `progress` | Page progress from `0` (top) to `1` (end), eased. `0` if there is nothing to scroll. |
 | `inTarget` | `true` once the eased position has reached the target. |
 
 Read `data` inside sync watchers or tickers, not through template bindings: it
 changes on every scroll frame, so a binding would re-render the component each
-time. To show the page progress in a template, bind the store's `progress`,
-which only updates when its two decimals change.
+time.
 
 ## Behavior to know
 
