@@ -95,7 +95,7 @@ test('existing entries are never changed, including devDependencies and empty ra
   assert.equal(pkg.devDependencies['@pinia/nuxt'], undefined);
 });
 
-for (const source of ['{"dependencies":{"gsap":""}}\n', '{"devDependencies":{"gsap":""}}\n']) {
+for (const source of ['{"dependencies":{"gsap":""}}\n', '{"devDependencies":{"gsap":""}}\n', '{"peerDependencies":{"gsap":""}}\n', '{"optionalDependencies":{"gsap":""}}\n']) {
   test(`installing and declaring both treat an empty range as declared: ${source.trim()}`, async t => {
     for (const options of [{ installDependencies: () => assert.fail('gsap is already declared') }, { install: false }]) {
       const root = await project(t, 'nuxt', source);
@@ -105,12 +105,14 @@ for (const source of ['{"dependencies":{"gsap":""}}\n', '{"devDependencies":{"gs
   });
 }
 
-test('init reports gsap that is already declared and leaves the file alone', async t => {
-  const source = '{"devDependencies":{"gsap":"3.0.0"}}';
-  const root = await project(t, 'nuxt', source);
-  assert.match(await run(['init', '--framework', 'nuxt', '--no-install'], root), /gsap is already in package\.json/);
-  assert.equal(await readPkg(root), source);
-});
+for (const section of ['devDependencies', 'peerDependencies', 'optionalDependencies']) {
+  test(`init reports gsap already declared in ${section} and leaves the file alone`, async t => {
+    const source = JSON.stringify({ [section]: { gsap: '3.0.0' } });
+    const root = await project(t, 'nuxt', source);
+    assert.match(await run(['init', '--framework', 'nuxt', '--no-install'], root), /gsap is already in package\.json/);
+    assert.equal(await readPkg(root), source);
+  });
+}
 
 for (const [label, source, expected] of [
   ['two spaces', '{\n  "a": 1\n}\n', '{\n  "a": 1,\n  "dependencies": {\n    "gsap": "R"\n  }\n}\n'],

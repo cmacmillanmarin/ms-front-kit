@@ -42,7 +42,7 @@ cd "/path/to/your-vue-project"
 ms-front-kit init --framework vue
 ```
 
-Choose one framework, not both. Nuxt init installs GSAP and creates its client
+Choose one framework, not both. Nuxt init installs GSAP unless already declared and creates its client
 plugin; Vue init creates only the configuration. Before continuing, review
 ms-front-kit.json and adjust paths for your project. For example, Nuxt defaults
 to app/components, app/composables, app/store, app/types, and app/assets/scss; Vue
@@ -161,7 +161,10 @@ does not remove that rule; delete those lines manually, then commit the config.
 
 Nuxt initialization now creates both `ms-front-kit.json` and
 `app/plugins/ms-front-kit.client.ts`, then runs `npm install gsap`. This updates
-the consuming project's package.json and npm lockfile. The client plugin prints
+the consuming project's package.json and npm lockfile. A gsap entry already in
+`dependencies`, `devDependencies`, `peerDependencies`, or `optionalDependencies`
+is left as declared and nothing is installed.
+The client plugin prints
 the studio credit, registers CustomEase, and defines the example `ms-ease` easing.
 It sets GSAP defaults to duration 0.8 seconds and ease "ms-ease"; individual
 tweens can override these.
@@ -175,7 +178,8 @@ Use `ms-front-kit init --framework nuxt --no-install` to create files without
 running a package manager: gsap is added to package.json dependencies, and a later
 plain install with any package manager fetches it (see
 [Installing without npm](#installing-without-npm)). Automatic
-installation is npm-only and refuses conflicting package-manager configuration.
+installation is npm-only and refuses conflicting package-manager configuration
+when gsap still needs installing.
 Existing init config/plugin files are preserved; init is not an upgrade command.
 If npm installation fails, the generated files remain and the error explains how
 to retry. Nuxt init statically parses `nuxt.config.ts`, `.js`, or `.mjs` without
@@ -411,7 +415,8 @@ install`, `yarn`, `bun install`, or `npm install` fetches it:
 | `pinia` | `^4.1.0` | `add composable` with `useScrollBar`, `useScrollNative`, `useScrollVirtual`, or `useScroll` |
 | `@pinia/nuxt` | `^1.0.3` | The same composables as `pinia`, on Nuxt |
 
-An entry already in `dependencies` or `devDependencies` is never changed.
+An entry already in `dependencies`, `devDependencies`, `peerDependencies`, or
+`optionalDependencies` is never changed or duplicated.
 `dependencies` is written in the order npm uses, and the file keeps its
 indentation and trailing newline. The command refuses to edit a package.json that
 is invalid or linked, or that changed while it ran. Without a package.json, none

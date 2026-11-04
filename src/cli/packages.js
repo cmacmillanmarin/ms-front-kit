@@ -16,6 +16,7 @@ export const packageRanges = {
 
 const byName = (a, b) => a.localeCompare(b, 'en'); // The order npm writes dependencies in.
 const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+const dependencySections = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'];
 
 export async function readPackage(root) {
   try { return JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8')); }
@@ -23,7 +24,7 @@ export async function readPackage(root) {
 }
 
 export function missingPackages(pkg, names) {
-  return names.filter(name => !Object.hasOwn(pkg?.dependencies ?? {}, name) && !Object.hasOwn(pkg?.devDependencies ?? {}, name));
+  return names.filter(name => !dependencySections.some(section => Object.hasOwn(pkg?.[section] ?? {}, name)));
 }
 
 // Automatic installation is npm-only; other package managers must install manually.
