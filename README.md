@@ -205,7 +205,9 @@ The CLI reads configuration from the current directory, not parent directories.
 `add component`, `add styles`, and `add composable useScroll` install `sass` as a
 development dependency, because generated components and styles use SCSS. A project
 that already declares `sass` or `sass-embedded` installs nothing and needs no flag,
-whichever package manager it uses.
+whichever package manager it uses. Otherwise, in a project with another package
+manager or no package.json, these commands refuse and name `--no-install` (see
+[Installing without npm](#installing-without-npm)).
 
 ## Project conventions and AI instructions
 
