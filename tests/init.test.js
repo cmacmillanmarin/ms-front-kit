@@ -37,12 +37,11 @@ test('Nuxt init creates the plugin and requests GSAP installation', async t => {
   assert.equal(ast.parseDiagnostics.length, 0);
 });
 
-test('no-install creates a plugin without changing package.json', async t => {
+test('no-install creates a plugin and declares gsap in package.json', async t => {
   const root = await project(t);
-  const before = await readFile(path.join(root, 'package.json'), 'utf8');
   const result = await run(['init', '--framework', 'nuxt', '--no-install'], root);
-  assert.match(result, /installation skipped/);
-  assert.equal(await readFile(path.join(root, 'package.json'), 'utf8'), before);
+  assert.match(result, /Added gsap@\^3\.15\.1 to package\.json dependencies; nothing was installed\. Run a plain install/);
+  assert.equal(await readFile(path.join(root, 'package.json'), 'utf8'), '{"private":true,"dependencies":{"gsap":"^3.15.1"}}');
   await assert.rejects(run(['init', '--framework', 'nuxt', '--no-install'], root), { code: 'EEXIST' });
 });
 

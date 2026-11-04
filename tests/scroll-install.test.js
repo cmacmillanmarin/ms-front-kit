@@ -66,7 +66,7 @@ for (const layout of layouts) {
     const message = await run(['add', 'composable', 'useScroll', '--no-install'], root);
     const files = installedFiles(layout);
     for (const file of files) assert.match(message, new RegExp(`Created ${file.replaceAll('/', '\\/')}`));
-    assert.match(message, /gsap/);
+    assert.match(message, /Added .*pinia@\S+.* to package\.json dependencies/);
 
     const componentFile = `${layout.paths.components}/Scroll/Index.vue`;
     const component = await readFile(path.join(root, componentFile), 'utf8');

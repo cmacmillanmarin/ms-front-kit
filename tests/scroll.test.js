@@ -54,7 +54,7 @@ test('useScroll installs composables, store, component, Pinia module and app mou
   assert.match(updated, /import Scroll from "\.\/components\/Scroll\/Index.vue"/);
   assert.match(updated, /\/\/ keep\nconst title = "Hi";/);
   assert.match(updated, /<Scroll>\s*<NuxtLayout>\s*<NuxtPage \/>\s*<\/NuxtLayout>\s*<\/Scroll>/);
-  assert.match(message, /install pinia @pinia\/nuxt gsap/);
+  assert.match(message, /Added @pinia\/nuxt@\S+, pinia@\S+ to package\.json dependencies/); // init declared gsap.
   assert.match(message, /Created app\/components\/Scroll\/Index.vue[\s\S]*Created app\/components\/Scroll\/README.md/);
   const docs = await readFile(path.join(root, 'app/components/Scroll/README.md'), 'utf8');
   assert.doesNotMatch(docs, /\{\{\w+\}\}/);
@@ -157,7 +157,7 @@ test('Vue output uses explicit imports and configured component, composable and 
   assert.match(await readFile(path.join(root, 'src/App.vue'), 'utf8'), /<Scroll>\s*<RouterView \/>\s*<\/Scroll>/);
   assert.match(message, /createPinia/);
   assert.match(message, /vue-router/);
-  assert.match(message, /install pinia gsap with/);
+  assert.match(message, /Added gsap@\S+, pinia@\S+ to package\.json dependencies/);
 });
 
 test('configurations without paths.store or paths.types default to sibling directories and are not rewritten', async t => {
@@ -187,7 +187,8 @@ test('store and types paths outside the project are rejected', async t => {
 });
 
 test('installation adds only missing packages, after files, and checks npm first', async t => {
-  const root = await project(t, 'nuxt', { pkg: '{"dependencies":{"pinia":"^3.0.0"}}' });
+  const root = await project(t, 'nuxt');
+  await writeFile(path.join(root, 'package.json'), '{"dependencies":{"pinia":"^3.0.0"}}');
   const config = JSON.parse(await readFile(path.join(root, 'ms-front-kit.json'), 'utf8'));
   config.paths.store = 'app/store';
   const installs = [];

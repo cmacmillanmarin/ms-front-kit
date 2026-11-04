@@ -3,7 +3,7 @@ import path from 'node:path';
 import { checkPath, readOptional } from './styles.js';
 import { planScrollSetup } from './scroll-setup.js';
 import { nuxtLayout } from './nuxt-layout.js';
-import { assertNpm, missingPackages, npmInstall, readPackage } from './packages.js';
+import { assertNpm, declarePackages, missingPackages, npmInstall, planPackages, readPackage } from './packages.js';
 
 // App integration for composables that ship a component.
 const setups = { useScroll: planScrollSetup };
@@ -143,6 +143,7 @@ export async function addComposable(root, config, name, safeDirectory, { install
   const setup = setups[name] && component
     ? await setups[name](root, config, componentFile, checkPath, readOptional)
     : { edits: [], notes: [] };
+  const declaration = !install && packages.size ? await planPackages(root, [...packages]) : null;
   const pkg = await readPackage(root);
   const missing = missingPackages(pkg, [...packages]);
   if (missing.length && install) await assertNpm(root);
@@ -179,8 +180,9 @@ export async function addComposable(root, config, name, safeDirectory, { install
       throw new Error(`${messages.join('\n')}\nFiles were created, but installing ${missing.join(' ')} failed. Review package.json and the lockfile, then run npm install ${missing.join(' ')}. ${error.stderr || error.message}`);
     }
     messages.push(`Installed ${missing.join(', ')} with npm.`);
-  } else if (missing.length) {
-    messages.push(`Dependency installation skipped; install ${missing.join(' ')} with your project package manager.`);
+  } else if (declaration?.add.length) {
+    try { messages.push(await declarePackages(root, declaration)); }
+    catch (error) { throw new Error(`${messages.join('\n')}\nFiles were created, but the packages were not declared. ${error.message}`); }
   }
 
   if (config.framework === 'nuxt' && outputs.some(output => output.prefix)) {

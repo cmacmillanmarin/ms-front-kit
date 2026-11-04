@@ -172,7 +172,9 @@ Enable it only after installing matching font styles/assets. It does not block
 application startup and does not add webfontloader or project-specific stores.
 
 Use `ms-front-kit init --framework nuxt --no-install` to create files without
-running npm; install gsap with your chosen package manager afterward. Automatic
+running a package manager: gsap is added to package.json dependencies, and a later
+plain install with any package manager fetches it (see
+[Installing without npm](#installing-without-npm)). Automatic
 installation is npm-only and refuses conflicting package-manager configuration.
 Existing init config/plugin files are preserved; init is not an upgrade command.
 If npm installation fails, the generated files remain and the error explains how
@@ -396,6 +398,26 @@ Edit `templates/vue/components/basic/component.vue.tpl` to refine the default.
 Generated components intentionally have no empty elements or modifiers: add them
 as needed using `block__element` and `block--modifier`.
 
+## Installing without npm
+
+`init` and `add composable` accept `--no-install`. It runs no package manager and
+needs no network. After the files are created, each package the command would
+otherwise install is added to package.json `dependencies`, so a plain `pnpm
+install`, `yarn`, `bun install`, or `npm install` fetches it:
+
+| Package | Range | Added by |
+| --- | --- | --- |
+| `gsap` | `^3.15.1` | Nuxt `init`, `add composable useRaf`, `add composable useScroll` |
+| `pinia` | `^4.1.0` | `add composable useScroll` |
+| `@pinia/nuxt` | `^1.0.3` | `add composable useScroll` on Nuxt |
+
+An entry already in `dependencies` or `devDependencies` is never changed.
+`dependencies` is written in the order npm uses, and the file keeps its
+indentation and trailing newline. The command refuses to edit a package.json that
+is invalid or linked, or that changed while it ran. Without a package.json, none
+is created: the command prints the packages to add with their ranges. Packages the
+kit only mentions, such as `sass` and `vue-router`, are not added.
+
 ## Development grid overlay
 
 `add styles` creates `<configured components directory>/Helper/Grid.vue`, based
@@ -408,10 +430,12 @@ on a consuming project's grid helper, and mounts it in the application shell:
 It uses an explicit relative import, so a custom component directory does not
 require Nuxt auto-import configuration. Existing script/template/style content
 is preserved. A missing app shell is created (NuxtLayout/NuxtPage for Nuxt, an
-empty wrapper for Vue). Existing Helper/Grid.vue files and existing grid mounts
-are never overwritten or duplicated. Complex/external app templates or scripts
-that cannot be safely merged are left untouched and the CLI prints a manual
-mount snippet instead. Dynamic/layered Nuxt source layouts need manual mounting.
+empty wrapper for Vue). The mount is always `<HelperGrid v-if="isDev" />`.
+Existing Helper/Grid.vue files and existing grid mounts, including the
+`MsFrontKitGrid`/`msFrontKitDev` names of earlier versions, are never overwritten
+or duplicated. Complex/external app templates or scripts that cannot be safely
+merged, and apps that already use `HelperGrid` or `isDev` for something else, are
+left untouched and the CLI prints a manual mount snippet instead. Dynamic/layered Nuxt source layouts need manual mounting.
 
 The small toggle button shows/hides the overlay and remembers visibility in
 localStorage under `helper-grid-visible`. Disabled storage does not break the
@@ -434,13 +458,13 @@ For manual installation, copy
 
 ```vue
 <script setup lang="ts">
-import MsFrontKitGrid from "./components/Helper/Grid.vue";
-const msFrontKitDev = import.meta.dev; // Nuxt; use import.meta.env.DEV in Vue/Vite
+import HelperGrid from "./components/Helper/Grid.vue";
+const isDev = import.meta.dev; // Nuxt; use import.meta.env.DEV in Vue/Vite
 </script>
 
 <template>
   <!-- Keep the existing application content. -->
-  <MsFrontKitGrid v-if="msFrontKitDev" />
+  <HelperGrid v-if="isDev" />
 </template>
 ```
 
@@ -558,8 +582,10 @@ auto-import configuration. It then:
   when their `base/_tokens.scss` lacks `--focus-size`, `--focus-offset`, or
   `--color-focus`, the command prints the missing tokens as a suggestion.
 
-Use `--no-install` to skip npm and install with your package manager; automatic
-installation uses the same npm-only checks as init. Repeat runs skip existing
+Use `--no-install` to run no package manager and declare the packages in
+package.json instead (see [Installing without npm](#installing-without-npm));
+automatic installation uses the same npm-only checks as init. useScroll's
+vue-router stays a message in both modes. Repeat runs skip existing
 files, registrations, and mounts. Existing installs are not migrated: files from
 an earlier version stay as they are while missing type files are added, so the
 GSAP ticker, watchers, and accessibility changes reach a project only when you
