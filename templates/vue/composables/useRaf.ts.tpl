@@ -1,60 +1,35 @@
-export type Ticker = (time: number, delta: number) => void
+import type { Ticker, TickerOptions } from '{{typesDirectory}}/composables/useRaf'
+import { gsap } from 'gsap'
 
-function createRafState() {
-  const tickers = new Set<Ticker>()
-  let frame: number | undefined
-  let last = 0
-
-  function loop(time: number): void {
-    // Clamp long gaps (background tabs, breakpoints) so time-based easing doesn't jump.
-    const delta = last ? Math.min(time - last, 100) : 1000 / 60
-    last = time
-    // Set iteration tolerates tickers removing themselves during the frame.
-    for (const ticker of tickers) ticker(time, delta)
-    if (tickers.size) frame = requestAnimationFrame(loop)
-    else {
-      frame = undefined
-      last = 0
-    }
-  }
-
-  function add(ticker: Ticker): void {
-    tickers.add(ticker)
-    if (frame === undefined && typeof window !== 'undefined') frame = requestAnimationFrame(loop)
-  }
-
-  function remove(ticker: Ticker): void {
-    tickers.delete(ticker)
-    if (tickers.size || frame === undefined) return
-    cancelAnimationFrame(frame)
-    frame = undefined
-    last = 0
-  }
-
-  return { add, remove }
-}
-
-// One requestAnimationFrame loop for every consumer; it stops while nothing is registered.
-let clientRafState: ReturnType<typeof createRafState> | undefined
-
+// GSAP's ticker is the one requestAnimationFrame loop shared by every consumer
+// and by GSAP tweens, so the site never runs two loops. It sleeps on its own
+// while nothing is registered.
 export default function useRaf() {
-  const state = typeof window === 'undefined'
-    ? createRafState()
-    : (clientRafState ??= createRafState())
   const owned = new Set<Ticker>()
 
-  function addTicker(ticker: Ticker): void {
+  function addTicker(ticker: Ticker, options?: TickerOptions): void {
+    // Server renders have no frames, and the ticker is shared across requests.
+    if (typeof window === 'undefined') return
     owned.add(ticker)
-    state.add(ticker)
+    if (!options?.priority) {
+      gsap.ticker.add(ticker)
+      return
+    }
+    // Prioritizing unshifts the listener, which would make GSAP's loop run the
+    // current listener twice if added mid-frame (e.g. scrollTo from a tween).
+    // Deferred until the frame's listeners are done; skipped if killed meanwhile.
+    queueMicrotask(() => {
+      if (owned.has(ticker)) gsap.ticker.add(ticker, false, true)
+    })
   }
 
   function killTicker(ticker: Ticker): void {
     owned.delete(ticker)
-    state.remove(ticker)
+    gsap.ticker.remove(ticker)
   }
 
   onUnmounted(() => {
-    for (const ticker of owned) state.remove(ticker)
+    for (const ticker of owned) gsap.ticker.remove(ticker)
     owned.clear()
   })
 

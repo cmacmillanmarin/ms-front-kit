@@ -16,7 +16,11 @@ test('main compiles the global foundation without intrusive reset rules', () => 
   assert.match(css, /--color-secondary:/);
   assert.match(css, /--layout-max-width: 120rem/);
   assert.doesNotMatch(css, /--font-family|--line-height/);
-  assert.doesNotMatch(css, /outline:|scroll-behavior:|10px/i);
+  assert.doesNotMatch(css, /outline: (?:none|0)|scroll-behavior:|10px/i);
+  assert.match(css, /:focus-visible \{\s*outline: var\(--focus-size\) solid var\(--color-focus\);\s*outline-offset: var\(--focus-offset\);/);
+  assert.match(css, /--focus-size: 2px/);
+  assert.match(css, /--focus-offset: 2px/);
+  assert.match(css, /--color-focus: currentcolor/);
   assert.equal((css.match(/@font-face/g) || []).length, 1);
   assert.match(css, /font-weight: 500/);
   assert.doesNotMatch(css, /body \*/);

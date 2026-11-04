@@ -1,4 +1,5 @@
-import useScrollStore, { type Data } from '{{storeDirectory}}/useScrollStore'
+import type { Data } from '{{typesDirectory}}/store/useScrollStore'
+import useScrollStore from '{{storeDirectory}}/useScrollStore'
 
 // Overlay scrollbar for virtual mode, modeled on macOS: the thumb tracks the
 // viewport, can be dragged, track clicks page toward the pointer (held clicks
@@ -29,7 +30,6 @@ export default function useScrollBar() {
 
   let track: HTMLElement | undefined
   let thumb: HTMLElement | undefined
-  let removeRender: (() => void) | undefined
   let observer: ResizeObserver | undefined
   let hideTimer: ReturnType<typeof setTimeout> | undefined
   let repeatTimer: ReturnType<typeof setTimeout> | undefined
@@ -39,6 +39,8 @@ export default function useScrollBar() {
   let travel = 0
   let bounding = 0
   let current = 0
+  // Last aria-valuenow written, so the attribute only changes per percent.
+  let valueNow: number | undefined
   // Latest page target while easing toward it, so repeated pages accumulate.
   let goal: number | undefined
   // Pointer distance from the thumb start while dragging.
@@ -64,12 +66,18 @@ export default function useScrollBar() {
   }
 
   function position(): void {
-    if (!thumb) return
+    if (!track || !thumb) return
     const y = bounding > 0 ? current / bounding * travel : 0
     thumb.style.transform = `translate3d(0, ${y}px, 0)`
+    const value = bounding > 0 ? Math.round(current / bounding * 100) : 0
+    if (value !== valueNow) {
+      valueNow = value
+      track.setAttribute('aria-valuenow', String(value))
+    }
   }
 
   function onRender(data: Data): void {
+    if (!track) return
     const moved = data.current !== current
     current = data.current
     if (data.inTarget) goal = undefined
@@ -122,7 +130,8 @@ export default function useScrollBar() {
     store.scrollTo(y / travel * bounding, { immediate: true })
   }
 
-  function page(): boolean {
+  // Scrolls one page toward the pointer; false once there is nothing left to page.
+  function pageTowardPointer(): boolean {
     const base = goal ?? current
     const start = base / bounding * travel
     const y = local(pointerY)
@@ -134,7 +143,7 @@ export default function useScrollBar() {
   }
 
   function repeat(): void {
-    repeatTimer = page() ? setTimeout(repeat, repeatInterval) : undefined
+    repeatTimer = pageTowardPointer() ? setTimeout(repeat, repeatInterval) : undefined
   }
 
   function onPointerDown(e: PointerEvent): void {
@@ -150,7 +159,7 @@ export default function useScrollBar() {
     } else if (e.altKey) {
       grab = size / 2
       drag(e.clientY)
-    } else if (page()) {
+    } else if (pageTowardPointer()) {
       repeatTimer = setTimeout(repeat, repeatDelay)
     }
     show()
@@ -180,7 +189,6 @@ export default function useScrollBar() {
     current = store.data.current
     bounding = store.data.bounding
     measure()
-    removeRender = store.addRenderCallback(onRender)
     if (typeof ResizeObserver !== 'undefined') {
       observer = new ResizeObserver(measure)
       observer.observe(track)
@@ -196,13 +204,11 @@ export default function useScrollBar() {
 
   function destroy(): void {
     if (!track) return
-    removeRender?.()
-    removeRender = undefined
     observer?.disconnect()
     observer = undefined
     clearTimeout(hideTimer)
     clearTimeout(repeatTimer)
-    hideTimer = repeatTimer = goal = grab = undefined
+    hideTimer = repeatTimer = goal = grab = valueNow = undefined
     track.removeEventListener('pointerdown', onPointerDown)
     track.removeEventListener('pointermove', onPointerMove)
     track.removeEventListener('pointerup', onPointerUp)
@@ -211,6 +217,8 @@ export default function useScrollBar() {
     track.removeEventListener('pointerenter', onPointerEnter)
     track = thumb = undefined
   }
+
+  watch(() => store.data, onRender, { flush: 'sync' })
 
   onBeforeUnmount(destroy)
 

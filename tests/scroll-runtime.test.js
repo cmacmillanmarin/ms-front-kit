@@ -5,12 +5,44 @@ import ts from 'typescript';
 import * as Vue from 'vue';
 import * as Pinia from 'pinia';
 
+// Stands in for gsap.ticker on the fake frames: listeners in order, prioritized
+// ones first, GSAP's arguments (seconds, ms), and asleep without listeners.
+function createTicker() {
+  const listeners = [];
+  let frame;
+  let last = 0;
+  function loop(time) {
+    const delta = last ? time - last : 1000 / 60;
+    last = time;
+    for (const listener of [...listeners]) listener(time / 1000, delta, 0);
+    if (listeners.length) frame = requestAnimationFrame(loop);
+    else { frame = undefined; last = 0; }
+  }
+  return {
+    add(listener, _once, prioritize) {
+      this.remove(listener);
+      listeners[prioritize ? 'unshift' : 'push'](listener);
+      if (frame === undefined) frame = requestAnimationFrame(loop);
+    },
+    remove(listener) {
+      const index = listeners.indexOf(listener);
+      if (index !== -1) listeners.splice(index, 1);
+      if (listeners.length || frame === undefined) return;
+      cancelAnimationFrame(frame);
+      frame = undefined;
+      last = 0;
+    }
+  };
+}
+let ticker = createTicker();
+
 async function load(file, scope = {}, imports = {}) {
   const source = (await readFile(new URL(`../templates/vue/${file}`, import.meta.url), 'utf8')).replaceAll('{{storeDirectory}}', './store');
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   const exports = {};
-  const modules = { vue: Vue, pinia: Pinia, ...imports };
-  const hooks = { onMounted: Vue.onMounted, onUnmounted: Vue.onUnmounted, onBeforeUnmount: Vue.onBeforeUnmount, ...scope };
+  const modules = { vue: Vue, pinia: Pinia, gsap: { gsap: { ticker } }, ...imports };
+  // Priority tickers register in a microtask; running it inline lets frames flush right away.
+  const hooks = { onMounted: Vue.onMounted, onUnmounted: Vue.onUnmounted, onBeforeUnmount: Vue.onBeforeUnmount, watch: Vue.watch, nextTick: Vue.nextTick, queueMicrotask: callback => callback(), ...scope };
   new Function('exports', 'require', ...Object.keys(hooks), compiled)(exports, name => modules[name], ...Object.values(hooks));
   return exports.default;
 }
@@ -35,6 +67,7 @@ function counted(target = new EventTarget()) {
 }
 
 function frames(t) {
+  ticker = createTicker();
   const queue = new Map();
   let id = 0;
   global(t, 'requestAnimationFrame', callback => { queue.set(++id, callback); return id; });
@@ -81,7 +114,7 @@ function mount(t, composable, setup = app => app) {
   return { value, unmount };
 }
 
-test('useRaf shares one frame loop that stops when no ticker remains', async t => {
+test('useRaf shares GSAP\'s ticker, which sleeps when no ticker remains', async t => {
   global(t, 'window', {});
   const raf = frames(t);
   const useRaf = await load('composables/useRaf.ts.tpl');
@@ -100,6 +133,45 @@ test('useRaf shares one frame loop that stops when no ticker remains', async t =
   assert.deepEqual(calls.at(-1), ['b']);
   second.unmount();
   assert.equal(raf.pending(), 0);
+});
+
+test('useRaf runs priority tickers first, deferred past the current frame, on the real GSAP ticker', async t => {
+  global(t, 'window', {});
+  const { gsap } = await import('gsap');
+  t.after(() => gsap.ticker.sleep()); // Otherwise GSAP keeps its loop running for later tests.
+  const useRaf = await load('composables/useRaf.ts.tpl', { queueMicrotask }, { gsap: { gsap } });
+  const { value, unmount } = mount(t, useRaf);
+  const calls = [];
+  const plain = () => calls.push('plain');
+  const first = (time, delta) => {
+    assert.equal(typeof time, 'number');
+    assert.equal(typeof delta, 'number');
+    calls.push('first');
+  };
+  const killed = () => calls.push('killed');
+  value.addTicker(plain);
+  value.addTicker(first, { priority: true });
+  value.addTicker(killed, { priority: true });
+  value.killTicker(killed); // Killed before its microtask: never registered.
+  gsap.ticker.tick();
+  assert.deepEqual(calls, ['plain']); // Not added mid-frame.
+  await Promise.resolve();
+  calls.length = 0;
+  gsap.ticker.tick();
+  assert.deepEqual(calls, ['first', 'plain']);
+  unmount();
+  calls.length = 0;
+  gsap.ticker.tick();
+  assert.deepEqual(calls, []);
+});
+
+test('useRaf registers nothing during server rendering', async t => {
+  global(t, 'window', undefined);
+  const added = [];
+  const useRaf = await load('composables/useRaf.ts.tpl', {}, { gsap: { gsap: { ticker: { add: listener => added.push(listener), remove() {} } } } });
+  useRaf().addTicker(() => {});
+  useRaf().addTicker(() => {}, { priority: true });
+  assert.deepEqual(added, []);
 });
 
 test('scroll lock blocks page gestures, allows marked containers until their edge, and cleans up', async t => {
@@ -353,6 +425,130 @@ test('native scroll uses the Scroll root as scroll container instead of the wind
   assert.equal(windowScrolls, 0);
   instance.unmount();
   assert.equal(scroller.listeners('scroll'), 0);
+  assert.equal(win.listeners('keydown'), 0);
+});
+
+test('native scroll answers scroll keys only while focus is outside the root and nothing is typing', async t => {
+  frames(t);
+  const win = counted();
+  Object.assign(win, { innerHeight: 900, scrollTo() {}, matchMedia: () => ({ matches: false }) });
+  global(t, 'window', win);
+  global(t, 'document', { getElementById: () => null });
+  global(t, 'Node', FakeElement);
+  global(t, 'HTMLElement', FakeElement);
+  const inside = element();
+  const scroller = counted(new FakeElement());
+  const moves = [];
+  Object.assign(scroller, {
+    scrollTop: 0, clientHeight: 800, scrollHeight: 3000,
+    contains: target => target === inside,
+    getBoundingClientRect: () => ({ top: 0 }),
+    scrollTo({ top, behavior }) { moves.push([top, behavior]); this.scrollTop = top; }
+  });
+  const root = Object.assign(element(), { parentElement: scroller, querySelectorAll: () => [] });
+  const useRaf = await load('composables/useRaf.ts.tpl');
+  const useScrollNative = await load('composables/useScrollNative.ts.tpl', { useRaf });
+  const instance = mount(t, useScrollNative);
+  instance.value.create({ el: root, update() {}, position: 0 });
+  moves.length = 0;
+  const press = (code, { target = element(), ...keys } = {}) => {
+    const event = new Event('keydown', { cancelable: true });
+    Object.assign(event, { code, ...keys });
+    Object.defineProperty(event, 'target', { value: target });
+    win.dispatchEvent(event);
+    return event;
+  };
+  const tops = [['ArrowDown', {}, 40], ['ArrowUp', {}, 0], ['ArrowUp', {}, 0], ['PageDown', {}, 720], ['PageUp', {}, 0], ['Space', {}, 720], ['Space', { shiftKey: true }, 0], ['End', {}, 2200], ['Home', {}, 0]];
+  for (const [code, keys, top] of tops) {
+    assert.equal(press(code, keys).defaultPrevented, true, code);
+    assert.deepEqual(moves.at(-1), [top, 'smooth'], code);
+  }
+  moves.length = 0;
+  const button = Object.assign(element(), { tagName: 'BUTTON' });
+  const field = Object.assign(element(), { tagName: 'INPUT' });
+  const editable = Object.assign(element(), { isContentEditable: true });
+  const ignored = [
+    press('Space', { target: button }), press('ArrowDown', { target: field }), press('ArrowDown', { target: editable }),
+    press('ArrowDown', { target: inside }), press('ArrowDown', { metaKey: true }), press('ArrowDown', { ctrlKey: true }), press('ArrowDown', { altKey: true }), press('KeyA')
+  ];
+  for (const event of ignored) assert.equal(event.defaultPrevented, false);
+  // Space on a button activates it, but its arrows still scroll.
+  assert.equal(press('ArrowDown', { target: button }).defaultPrevented, true);
+  moves.length = 0;
+  instance.value.disable(true);
+  assert.equal(press('ArrowDown').defaultPrevented, false);
+  instance.value.disable(false);
+  assert.equal(press('ArrowDown').defaultPrevented, true);
+  assert.equal(moves.length, 1);
+  instance.unmount();
+  assert.equal(win.listeners('keydown'), 0);
+});
+
+test('auto mode is native only on touch with a mobile layout, and native mode follows disable()', async t => {
+  frames(t);
+  const engine = name => ({ name, created: 0, destroyed: 0, disabled: [], updates: 0,
+    create() { this.created++; }, destroy() { this.destroyed++; }, disable(value) { this.disabled.push(value); },
+    update() { this.updates++; }, reset() {}, to() {} });
+  const virtual = engine('virtual');
+  const native = engine('native');
+  const device = { touch: Vue.ref(false), isDesktop: Vue.ref(false), isTabletLandscape: Vue.ref(false) };
+  const tickers = new Set();
+  let observed;
+  global(t, 'ResizeObserver', class { constructor(callback) { observed = callback; } observe() {} disconnect() {} });
+  const useScrollStore = await load('stores/useScrollStore.ts.tpl');
+  const useScroll = await load('composables/useScroll.ts.tpl', {
+    useRoute: () => undefined,
+    useDevice: () => device,
+    useResize: () => ({ onResize: Vue.ref(false) }),
+    useScrollLock: () => ({ create() {}, destroy() {} }),
+    useRaf: () => ({ addTicker: ticker => tickers.add(ticker), killTicker: ticker => tickers.delete(ticker) }),
+    useScrollVirtual: () => virtual,
+    useScrollNative: () => native
+  }, { './store/useScrollStore': { default: useScrollStore } });
+  const pinia = Pinia.createPinia();
+  const instance = mount(t, () => { const store = useScrollStore(); return { store, scroll: useScroll() }; }, app => app.use(pinia));
+  const { store, scroll } = instance.value;
+  const el = { dataset: {} };
+  scroll.init({ el });
+  const expectMode = async (touch, isDesktop, isTabletLandscape, expected, label) => {
+    device.touch.value = touch;
+    device.isDesktop.value = isDesktop;
+    device.isTabletLandscape.value = isTabletLandscape;
+    await Vue.nextTick();
+    assert.equal(store.activeMode, expected, label);
+    assert.equal(el.dataset.scrollMode, expected, label);
+  };
+  assert.equal(store.activeMode, 'virtual');
+  await expectMode(true, false, false, 'native', 'touch with a mobile layout');
+  await expectMode(true, false, true, 'virtual', 'landscape tablet');
+  await expectMode(true, true, false, 'virtual', 'touch laptop');
+  await expectMode(false, true, false, 'virtual', 'desktop');
+  await expectMode(false, false, false, 'virtual', 'no touch, without device styles');
+  await expectMode(true, false, false, 'native', 'touch, without device styles');
+
+  store.disable(true);
+  await Vue.nextTick();
+  assert.deepEqual([native.disabled.at(-1), virtual.disabled.at(-1)], [true, true]);
+  store.disable(false);
+  await Vue.nextTick();
+  assert.equal(native.disabled.at(-1), false);
+  store.setMode('virtual');
+  await Vue.nextTick();
+  assert.equal(store.activeMode, 'virtual');
+
+  // Bursts of size changes measure once, on the next shared frame.
+  observed();
+  observed();
+  assert.equal(tickers.size, 1);
+  const [flush] = tickers;
+  const updates = virtual.updates;
+  flush();
+  assert.equal(virtual.updates, updates + 1);
+  assert.equal(tickers.size, 0);
+  observed();
+  assert.equal(tickers.size, 1);
+  instance.unmount();
+  assert.equal(tickers.size, 0);
 });
 
 test('scrollbar sizes and follows the thumb, drags, pages toward held clicks, jumps on Alt-click, and cleans up', async t => {
@@ -375,8 +571,11 @@ test('scrollbar sizes and follows the thumb, drags, pages toward held clicks, ju
   store.setData(data(0));
   const useScrollBar = await load('composables/useScrollBar.ts.tpl', {}, { './store/useScrollStore': { default: useScrollStore } });
   const thumb = element();
+  const attributes = {};
+  let valueWrites = 0;
   const track = Object.assign(element(), {
     clientHeight: 804,
+    setAttribute(name, value) { attributes[name] = value; if (name === 'aria-valuenow') valueWrites++; },
     setPointerCapture() {}, getBoundingClientRect: () => ({ top: 0 })
   });
   thumb.contains = target => target === thumb;
@@ -385,11 +584,19 @@ test('scrollbar sizes and follows the thumb, drags, pages toward held clicks, ju
   // 800px of travel for a 804px viewport over 3200px of overflow: 800 * 804 / 4004.
   assert.equal(thumb.style.height, `${800 * 804 / 4004}px`);
   assert.equal(track.dataset.overflow, 'true');
+  assert.equal(attributes['aria-valuenow'], '0');
   const size = 800 * 804 / 4004;
   const travel = 800 - size;
 
   store.setData(data(1600));
   assert.equal(thumb.style.transform, `translate3d(0, ${travel / 2}px, 0)`);
+  assert.equal(attributes['aria-valuenow'], '50');
+  // The attribute only changes per percent, not per frame.
+  const writes = valueWrites;
+  store.setData(data(1601));
+  store.setData(data(1602));
+  assert.equal(valueWrites, writes);
+  store.setData(data(1600));
   assert.equal(track.dataset.visible, ''); // Shown while scrolling...
   runTimers(1000);
   assert.equal(track.dataset.visible, undefined); // ...and hidden after the idle delay.
@@ -434,6 +641,7 @@ test('scrollbar sizes and follows the thumb, drags, pages toward held clicks, ju
   // No overflow hides the bar.
   store.setData({ ...data(0), bounding: 0 });
   assert.equal(track.dataset.overflow, 'false');
+  assert.equal(attributes['aria-valuenow'], '0');
 
   // The thumb turns light over dark backgrounds, read from the element behind it.
   const backgrounds = new Map();
@@ -465,7 +673,7 @@ test('scrollbar sizes and follows the thumb, drags, pages toward held clicks, ju
   assert.equal(timers.size, 0);
 });
 
-test('scroll store delegates to the registered controller and runs render callbacks first', async t => {
+test('scroll store delegates to the registered controller and reports data to sync watchers', async t => {
   const useScrollStore = await load('stores/useScrollStore.ts.tpl');
   const pinia = Pinia.createPinia();
   const { value: store } = mount(t, () => useScrollStore(), app => app.use(pinia));
@@ -478,12 +686,11 @@ test('scroll store delegates to the registered controller and runs render callba
   unregister();
   store.scrollTo(10);
   assert.equal(calls.length, 3);
+  assert.equal(store.addRenderCallback, undefined);
+  assert.equal(store.removeRenderCallback, undefined);
   const seen = [];
-  const remove = store.addRenderCallback(data => seen.push([data.current, store.data.current]));
-  store.setData({ current: 40, currentVertical: 40, speed: 0, direction: 'down', bounding: 100, inTarget: true });
-  assert.deepEqual(seen, [[40, 0]]);
-  remove();
-  store.setData({ current: 50, currentVertical: 50, speed: 0, direction: 'down', bounding: 100, inTarget: true });
-  assert.equal(seen.length, 1);
-  assert.equal(store.data.current, 50);
+  const stop = Vue.watch(() => store.data, data => seen.push(data.current), { flush: 'sync' });
+  store.setData({ current: 42, currentVertical: 42, speed: 0, direction: 'down', bounding: 100, inTarget: true });
+  assert.deepEqual(seen, [42]); // Same frame as the update.
+  stop();
 });

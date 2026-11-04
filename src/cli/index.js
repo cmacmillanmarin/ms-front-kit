@@ -19,8 +19,9 @@ Run from the project root:
   ms-front-kit add composable useResize|useDevice|useRaf|useScroll [--no-install]
 
 Creates project-owned files; preserves customized files.
-add composable useScroll also creates the Pinia scroll store and Scroll
-component, mounts it in the app shell, and installs Pinia with npm.
+add composable useScroll also creates the Pinia scroll store, its types, and
+the Scroll component, mounts it in the app shell, and installs Pinia and GSAP
+with npm.
 add styles also registers global CSS, configures the abstracts alias,
 and installs a development-only Helper/Grid.vue overlay in the app shell.
 React and Astro are not implemented yet.`;
@@ -42,11 +43,13 @@ async function loadConfig(root) {
   if (typeof config.styles?.grid !== 'boolean') {
     throw new Error('styles.grid must be a boolean. add styles enables the grid foundation.');
   }
-  // Configurations created before stores were supported keep them beside composables.
-  if (config.paths && config.paths.store === undefined && typeof config.paths.composables === 'string') {
-    config.paths.store = path.posix.join(path.posix.dirname(config.paths.composables), 'store');
+  // Configurations created before stores and types were supported keep them beside composables.
+  for (const key of ['store', 'types']) {
+    if (config.paths && config.paths[key] === undefined && typeof config.paths.composables === 'string') {
+      config.paths[key] = path.posix.join(path.posix.dirname(config.paths.composables), key);
+    }
   }
-  for (const key of ['components', 'composables', 'store', 'styles']) {
+  for (const key of ['components', 'composables', 'store', 'types', 'styles']) {
     const value = config.paths?.[key];
     if (typeof value !== 'string' || !value || path.isAbsolute(value) || value.split(/[\\/]/).includes('..')) {
       throw new Error(`paths.${key} must be a relative path inside the project.`);

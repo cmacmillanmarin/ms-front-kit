@@ -45,9 +45,9 @@ ms-front-kit init --framework vue
 Choose one framework, not both. Nuxt init installs GSAP and creates its client
 plugin; Vue init creates only the configuration. Before continuing, review
 ms-front-kit.json and adjust paths for your project. For example, Nuxt defaults
-to app/components, app/composables, app/store, and app/assets/scss; Vue defaults
-to their src/ equivalents. Configurations without `paths.store` use a store
-directory beside composables. Do not rerun init to change paths: edit the configuration.
+to app/components, app/composables, app/store, app/types, and app/assets/scss; Vue
+defaults to their src/ equivalents. Configurations without `paths.store` or
+`paths.types` use a store or types directory beside composables. Do not rerun init to change paths: edit the configuration.
 
 ### 2. Add the foundation and AI conventions
 
@@ -268,11 +268,12 @@ abstracts/_index.scss       CSS-free public Sass tools
 abstracts/_variables.scss   $design-root-size, editable fonts, breakpoint and typography maps
 abstracts/_functions.scss   rem() conversion from px design values
 abstracts/_mixins.scss      font-size(), from(), type(), with token validation
-base/_reset.scss            minimal normalization, native focus/controls preserved
+base/_reset.scss            minimal normalization, native controls preserved
 base/_tokens.scss           runtime CSS custom properties
 base/_fonts.scss            example font registration used by typography tokens
 base/_typography.scss       body defaults, browser root size preserved
 base/_device.scss           body::after CSS/JS breakpoint bridge
+base/_focus.scss            site-wide :focus-visible ring from the focus tokens
 ```
 
 In Nuxt, merge `css: ["@/assets/scss/ms-front-kit/main.scss"]` into `nuxt.config.ts`
@@ -398,7 +399,7 @@ as needed using `block__element` and `block--modifier`.
 ## Development grid overlay
 
 `add styles` creates `<configured components directory>/Helper/Grid.vue`, based
-on the Pentsalariok grid helper, and mounts it in the application shell:
+on a consuming project's grid helper, and mounts it in the application shell:
 
 - **Nuxt:** `<srcDir>/app.vue` (`app/app.vue` by default), guarded by
   `import.meta.dev`.
@@ -517,9 +518,13 @@ and phone/tablet classifications are best-effort hints; prefer feature detection
 Image support helpers are SSR-safe and have bounded browser load checks.
 Adding a composable does not install styles automatically.
 
-useRaf runs one shared requestAnimationFrame loop for every mounted consumer.
-Tickers receive `(time, delta)` with delta clamped to 100ms; the loop stops while
-no ticker is registered, and unmounting removes the tickers that component added.
+useRaf runs on GSAP's ticker, the one requestAnimationFrame loop shared by every
+mounted consumer and by GSAP tweens, and installs `gsap` when missing. Tickers
+receive `(time, delta)` with time in seconds and delta in ms, smoothed by GSAP's
+lagSmoothing. `addTicker(ticker, { priority: true })` runs a ticker first in the
+frame; the scroll uses it. Nothing runs during server rendering, and unmounting
+removes the tickers that component added. Its type lives in
+`<paths.types>/composables/useRaf.ts`.
 
 ### Custom scroll
 
@@ -529,15 +534,16 @@ ms-front-kit add composable useScroll
 
 This creates useResize, useDevice, useRaf, useScrollLock, useScrollNative,
 useScrollVirtual, useScrollBar, and useScroll in the composables directory, the Pinia store
-`<paths.store>/useScrollStore.ts`, `<paths.components>/Scroll/Index.vue`, and
+`<paths.store>/useScrollStore.ts`, the shared types under `<paths.types>/composables`
+and `<paths.types>/store`, `<paths.components>/Scroll/Index.vue`, and
 `<paths.components>/Scroll/README.md`, a project-owned quick reference for props, data
 attributes, the store API, and the scrollbar.
 Generated imports between them are relative, so custom paths work without
 auto-import configuration. It then:
 
 - **Nuxt:** adds `"@pinia/nuxt"` to a literal `modules` array in nuxt.config and
-  installs `pinia @pinia/nuxt` with npm when missing from package.json.
-- **Vue:** installs `pinia` and prints how to register `createPinia()` when the
+  installs `pinia @pinia/nuxt gsap` with npm when missing from package.json.
+- **Vue:** installs `pinia gsap` and prints how to register `createPinia()` when the
   entry does not already do it. useScroll imports `useRoute` from vue-router;
   install and register it if the project has none.
 - Wraps the app shell's single `<NuxtLayout>` (or `<NuxtPage>`) / `<RouterView>`
@@ -546,13 +552,25 @@ auto-import configuration. It then:
 - When `add styles` already ran, adds `--vh: 100svh;` at the start of `:root` in
   `ms-front-kit/base/_tokens.scss` unless a `--vh` is already defined (an existing
   value is kept). Without installed styles, Scroll falls back to `100svh`.
+- Scroll draws its own focus rings, with a 2px `currentcolor` fallback when
+  `--focus-size` and `--color-focus` are not defined. `add styles` installs the
+  focus tokens and the site-wide ring. Styles installed earlier do not get them:
+  when their `base/_tokens.scss` lacks `--focus-size`, `--focus-offset`, or
+  `--color-focus`, the command prints the missing tokens as a suggestion.
 
 Use `--no-install` to skip npm and install with your package manager; automatic
 installation uses the same npm-only checks as init. Repeat runs skip existing
-files, registrations, and mounts.
+files, registrations, and mounts. Existing installs are not migrated: files from
+an earlier version stay as they are while missing type files are added, so the
+GSAP ticker, watchers, and accessibility changes reach a project only when you
+merge them by hand. Files from different versions may not work together: for
+example, an earlier useScrollNative has no `disable()` for a newly created
+useScroll to call.
 
-`<Scroll mode="auto|virtual|native">` defaults to `auto`: virtual scroll
-without touch support, native scroll with it. The Scroll root is always
+`<Scroll mode="auto|virtual|native">` defaults to `auto`: native scroll on touch
+devices with a mobile layout (the `mobile` and `tablet` breakpoints), virtual
+scroll otherwise, including touch laptops and landscape tablets. Without the kit's
+device styles no layout is known, so touch alone decides. The Scroll root is always
 `var(--vh, 100svh)` tall and is the only scroll container: the window never scrolls, so
 mobile browser toolbars (address and tab bars) do not collapse or resize the
 viewport. Native mode scrolls the root itself (`overflow-y: auto`, with
@@ -566,6 +584,13 @@ Supported attributes: `data-scroll`, `data-scroll-continuous`,
 `data-scroll-progress` and `data-scroll-current` in both modes),
 `data-scroll-set-position` (content-relative coordinates),
 `data-scroll-target-offset`, and `data-tab-fixed`. The content element gets `data-scroll-mode="virtual|native"` for styling.
+`data-scroll-continuous` and `data-scroll-fixed-*` only change how a `data-scroll`
+element moves and do nothing on their own.
+
+In native mode the root is a focusable `role="region"` named by the `contentLabel`
+prop (default `"Page content"`), so it can be reached by Tab in browsers that
+don't focus scroll containers. While focus is outside it, scroll keys still move
+it (arrows move 40px); inside it the browser scrolls it natively.
 
 In virtual mode Scroll also renders a macOS-style overlay scrollbar
 (`scrollbar` prop, default `true`; `<Scroll :scrollbar="false">` turns it off).
@@ -575,7 +600,12 @@ scrolling and fades after one second of rest, widens with a track while hovered
 or held, can be dragged, pages toward the pointer on track clicks (repeating
 while held until the thumb reaches the pointer), and jumps to the clicked spot
 with Option/Alt-click. Wheel input over it scrolls the page. It is hidden when
-nothing overflows and removed while scrolling is disabled. As on macOS, the
+nothing overflows and removed while scrolling is disabled. It is a focusable
+`role="scrollbar"` named by the `scrollbarLabel` prop (default `"Page scroll"`),
+linked to the content with `aria-controls`, and reports the position as a 0-100
+`aria-valuenow`; while focused it opens as on hover, and the scroll keys move it.
+Both labels are plain English strings, so pass translated ones on multilingual
+sites. As on macOS, the
 thumb turns light over dark backgrounds: it reads the opaque `background-color`
 behind the thumb when the bar appears, on hover, and at most every 200ms while
 scrolling (`data-background="dark|light"` on `.scroll__bar`). Backgrounds it
@@ -593,16 +623,17 @@ scroll.scrollTo("#about");            // id, element, or number
 scroll.scrollTo(0, { immediate: true });
 scroll.disable(true);                 // also locks wheel, touch, and keys
 scroll.update();                      // re-measure after layout changes
-const stop = scroll.addRenderCallback(data => { /* per-frame work */ });
+watch(() => scroll.data, data => { /* scroll-driven work */ }, { flush: "sync" });
 ```
 
 `store.data` holds `{ current, currentVertical, speed, direction, bounding,
-inTarget }`, replaced once per animated frame. Prefer render callbacks for
-per-frame work over watchers or template bindings. While disabled, elements with
+inTarget }`, replaced once per scroll frame. Read it in sync watchers, which run
+only while the position changes, or in a useRaf ticker for work that must run
+every frame, rather than in template bindings. While disabled, elements with
 `data-scroll-lock-allow` (modals, menus) keep scrolling internally without
 chaining to the page.
 
-Content size changes are measured through ResizeObserver, coalesced to one frame.
+Content size changes are measured through ResizeObserver, coalesced to one shared frame.
 Route path changes reset to the top after the next tick; with page transitions,
 call `reset()` or `update()` once the new page has entered. Route hashes are
 handled by Scroll in both modes, because the router's scrollBehavior only
@@ -631,8 +662,10 @@ Frame loops sleep at rest, easing is frame-rate independent, and
 To grow the catalog, add a template in templates/vue/composables and register its
 filename, dependencies, and the imports it uses in catalog.json (`vue`, `router`,
 and `composables`, which must also be dependencies). Entries can name
-a store from templates/vue/stores/catalog.json (with per-framework packages) and,
-for the requested composable, a component template. Keep template
+a store from templates/vue/stores/catalog.json (with per-framework packages),
+per-framework `packages` of their own, `types` from templates/vue/types (such as
+`composables/useRaf`, installed under `paths.types`), and, for the requested
+composable, a component template. Keep template
 logic separate from installation behavior. Tests cover dependencies and skip
 behavior. Existing installations are not upgraded automatically.
 
@@ -645,6 +678,7 @@ schemas/                          project config schema
   vue/components/basic/           shared Vue/Nuxt basic template
   vue/composables/                 composable templates and dependency catalog
   vue/stores/                     Pinia store templates and their packages
+  vue/types/                      type templates for composables and stores
   vue/components/scroll/          Scroll component and usage reference templates
   nuxt/composables/                future Nuxt-specific composables
   shared/scss/                    framework-independent SCSS foundation

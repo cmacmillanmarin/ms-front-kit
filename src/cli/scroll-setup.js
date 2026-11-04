@@ -117,6 +117,16 @@ export function addViewportToken(source) {
   return { updated: source.slice(0, at) + token + source.slice(at), note: 'Added --vh: 100svh to base/_tokens.scss.' };
 }
 
+const focusTokens = [['--focus-size', '2px'], ['--focus-offset', '2px'], ['--color-focus', 'currentcolor']];
+
+// Installed styles belong to the project, so the tokens they lack are only suggested.
+function focusTokensNote(source) {
+  const missing = focusTokens.filter(([name]) => !new RegExp(`${name}\\s*:`).test(source));
+  if (!missing.length) return null;
+  const declarations = missing.map(([name, value]) => `${name}: ${value};`).join(' ');
+  return `Focus tokens: installed styles were left as they are. Scroll uses a 2px currentcolor fallback for any of --focus-size and --color-focus that are not defined. Unless defined elsewhere, you can add ${declarations} to :root in base/_tokens.scss.`;
+}
+
 function relativeImport(fromDirectory, file) {
   const relative = path.posix.relative(fromDirectory, file);
   return relative.startsWith('.') ? relative : `./${relative}`;
@@ -159,7 +169,7 @@ export async function planScrollSetup(root, config, componentFile, checkPath, re
       notes.push('Register Pinia in your Vue entry: import { createPinia } from "pinia"; app.use(createPinia());');
     }
   }
-  // Only projects that ran add styles have the tokens file; others use the fallback.
+  // Only projects that ran add styles have the tokens file; others use the fallbacks.
   const tokensFile = path.posix.join(config.paths.styles, 'ms-front-kit/base/_tokens.scss');
   await checkPath(root, tokensFile);
   const tokens = await readOptional(path.join(root, tokensFile));
@@ -167,6 +177,8 @@ export async function planScrollSetup(root, config, componentFile, checkPath, re
     const result = addViewportToken(tokens);
     if (result.updated !== tokens) edits.push({ file: tokensFile, source: tokens, updated: result.updated });
     notes.push(result.note);
+    const focusNote = focusTokensNote(tokens);
+    if (focusNote) notes.push(focusNote);
   }
   await checkPath(root, appFile);
   const source = await readOptional(path.join(root, appFile));

@@ -1,34 +1,6 @@
 import { computed, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
-
-export type Direction = 'up' | 'down'
-export type ScrollMode = 'auto' | 'virtual' | 'native'
-export type ActiveScrollMode = Exclude<ScrollMode, 'auto'>
-export type ScrollTarget = number | string | HTMLElement
-
-export interface Data {
-  current: number
-  currentVertical: number
-  speed: number
-  direction: Direction
-  bounding: number
-  inTarget: boolean
-}
-
-export interface ScrollTargetOptions {
-  // Jump without easing.
-  immediate?: boolean
-  // Element targets align to the viewport start by default.
-  align?: 'start' | 'center'
-}
-
-export interface ScrollController {
-  to(target: ScrollTarget, options?: ScrollTargetOptions): void
-  update(): void
-  reset(): void
-}
-
-export type RenderCallback = (data: Data) => void
+import type { ActiveScrollMode, Data, ScrollController, ScrollMode, ScrollTarget, ScrollTargetOptions } from '{{typesDirectory}}/store/useScrollStore'
 
 export default defineStore('scroll', () => {
   const mode = ref<ScrollMode>('auto')
@@ -47,7 +19,6 @@ export default defineStore('scroll', () => {
 
   // Not state: never serialized, proxied, or exposed reactively.
   let controller: ScrollController | undefined
-  const renderCallbacks = new Set<RenderCallback>()
 
   function setMode(value: ScrollMode): void {
     mode.value = value
@@ -62,18 +33,7 @@ export default defineStore('scroll', () => {
   }
 
   function setData(value: Data): void {
-    // Per-frame work (WebGL, DOM writes) runs before reactive consumers.
-    for (const callback of renderCallbacks) callback(value)
     data.value = value
-  }
-
-  function addRenderCallback(callback: RenderCallback): () => void {
-    renderCallbacks.add(callback)
-    return () => removeRenderCallback(callback)
-  }
-
-  function removeRenderCallback(callback: RenderCallback): void {
-    renderCallbacks.delete(callback)
   }
 
   function register(value: ScrollController): () => void {
@@ -105,8 +65,6 @@ export default defineStore('scroll', () => {
     setActiveMode,
     disable,
     setData,
-    addRenderCallback,
-    removeRenderCallback,
     register,
     scrollTo,
     update,

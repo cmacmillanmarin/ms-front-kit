@@ -4,6 +4,7 @@
 @use "base/fonts";
 @use "base/typography";
 @use "base/device";
+@use "base/focus";
 
 // Add project-wide utilities here when needed. Keep CSS-emitting modules out of
 // abstracts so components can import mixins without duplicating global styles.

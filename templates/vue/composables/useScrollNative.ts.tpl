@@ -1,26 +1,32 @@
-import type { Data, Direction, ScrollTarget, ScrollTargetOptions } from '{{storeDirectory}}/useScrollStore'
-
-interface Child {
-  el: HTMLElement
-  top: number
-  height: number
-  setProgress: boolean
-  progress: string
-  scrollCurrent: string
-}
+import type { Child } from '{{typesDirectory}}/composables/useScrollNative'
+import type { Data, Direction, ScrollTarget, ScrollTargetOptions } from '{{typesDirectory}}/store/useScrollStore'
 
 function round(value: number): number {
   return Math.round(value * 100) / 100
 }
 
+// Keys typed into a field must not scroll the page.
+function isTyping(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement &&
+    (target.isContentEditable || /^(?:INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
+}
+
+// Space activates focused buttons, links and summaries instead of scrolling.
+function activatesOnSpace(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && /^(?:BUTTON|A|SUMMARY)$/.test(target.tagName)
+}
+
 export default function useScrollNative() {
   const { addTicker, killTicker } = useRaf()
   const ease = 0.175
+  // Close to the browsers' own arrow-key step.
+  const keyStep = 40
 
   let el: HTMLElement | undefined
   // The Scroll root is the scroll container; the window never scrolls.
   let scroller: HTMLElement | undefined
   let active = false
+  let disabled = false
   let running = false
   let target = 0
   let current = 0
@@ -43,6 +49,7 @@ export default function useScrollNative() {
     target = current = scroller.scrollTop
     update()
     scroller.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('keydown', onKeyDown)
   }
 
   function update(): void {
@@ -55,7 +62,7 @@ export default function useScrollNative() {
     const elements = Array.from(el.querySelectorAll<HTMLElement>('[data-scroll-set-progress], [data-scroll-set-position]'))
     const rects = elements.map(element => element.getBoundingClientRect())
     children = elements.map((element, i) => {
-      const { top, left, right, bottom, height } = rects[i]
+      const { top, left, right, bottom, height } = rects[i]!
       if (element.dataset.scrollSetPosition !== undefined) {
         element.dataset.positionTop = String(top + scrollY)
         element.dataset.positionLeft = String(left)
@@ -114,7 +121,8 @@ export default function useScrollNative() {
   function wake(): void {
     if (running || !active) return
     running = true
-    addTicker(tick)
+    // First in the frame, so later tickers read the fresh position.
+    addTicker(tick, { priority: true })
   }
 
   function sleep(): void {
@@ -150,16 +158,59 @@ export default function useScrollNative() {
     update()
   }
 
+  function disable(value: boolean): void {
+    disabled = value
+  }
+
+  // Scroll keys only reach the root when focus is outside it (the body, the
+  // header): the browser would scroll the document, which never scrolls.
+  // Inside the root the browser scrolls it natively.
+  function onKeyDown(e: KeyboardEvent): void {
+    if (!scroller || disabled || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target) ||
+      (e.target instanceof Node && scroller.contains(e.target))) return
+    const page = scroller.clientHeight * 0.9
+    let top: number | undefined
+    switch (e.code) {
+      case 'ArrowDown':
+        top = scroller.scrollTop + keyStep
+        break
+      case 'ArrowUp':
+        top = scroller.scrollTop - keyStep
+        break
+      case 'PageDown':
+        top = scroller.scrollTop + page
+        break
+      case 'PageUp':
+        top = scroller.scrollTop - page
+        break
+      case 'Home':
+        top = 0
+        break
+      case 'End':
+        top = bounding
+        break
+      case 'Space':
+        if (activatesOnSpace(e.target)) return
+        top = scroller.scrollTop + page * (e.shiftKey ? -1 : 1)
+        break
+      default: return
+    }
+    e.preventDefault()
+    scroller.scrollTo({ top: Math.max(0, Math.min(top, bounding)), behavior: reducedMotion?.matches ? 'instant' : 'smooth' })
+  }
+
   function destroy(): void {
     if (!active) return
     sleep()
     scroller?.removeEventListener('scroll', onScroll)
+    window.removeEventListener('keydown', onKeyDown)
     children = []
     active = false
+    disabled = false
     el = scroller = undefined
   }
 
   onBeforeUnmount(destroy)
 
-  return { create, update, to, reset, destroy }
+  return { create, update, to, reset, destroy, disable }
 }

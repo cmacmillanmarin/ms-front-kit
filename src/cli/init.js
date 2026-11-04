@@ -29,7 +29,7 @@ export async function initialize(root, framework, safeDirectory, { install = tru
   const config = {
     version: 1,
     framework,
-    paths: { components: `${base}/components`, composables: `${base}/composables`, store: `${base}/store`, styles: `${base}/assets/scss` },
+    paths: { components: `${base}/components`, composables: `${base}/composables`, store: `${base}/store`, types: `${base}/types`, styles: `${base}/assets/scss` },
     components: { naming: 'PascalCase', style: 'scss', bem: true },
     styles: { grid: false }
   };
