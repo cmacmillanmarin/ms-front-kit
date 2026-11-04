@@ -101,12 +101,12 @@ test('recreated configuration records styles installed on another machine', asyn
   assert.match(result, /Found installed styles/);
   const config = JSON.parse(await readFile(path.join(root, 'ms-front-kit.json'), 'utf8'));
   assert.equal(config.styles.grid, true);
-  assert.match(await run(['add', 'component', 'Home/Hero'], root), /app\/components\/Home\/Hero.vue/);
+  assert.match(await run(['add', 'component', 'Home/Hero', '--no-install'], root), /app\/components\/Home\/Hero.vue/);
 });
 
 test('missing configuration explains how to recreate it', async t => {
   const root = await project(t);
-  await assert.rejects(run(['add', 'component', 'Card'], root), /No ms-front-kit.json.*init --framework/);
+  await assert.rejects(run(['add', 'component', 'Card', '--no-install'], root), /No ms-front-kit.json.*init --framework/);
 });
 
 for (const [label, source, base, assets, plugins] of [

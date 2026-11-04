@@ -46,7 +46,8 @@ face; explicitly load additional faces if the UI depends on them.
 - Create components under `{{componentsPath}}` using PascalCase directories
   and filenames. Paths passed to the CLI are relative to this component root.
 - Prefer `ms-front-kit add component Home/Hero/BackButton` from the project
-  root. It creates `{{componentsPath}}/Home/Hero/BackButton.vue`.
+  root. It creates `{{componentsPath}}/Home/Hero/BackButton.vue`, and declares
+  `sass` the same way `add styles` does when no compiler is declared; see Styling.
 - If the CLI is unavailable, follow the structure below manually. Projects must
   build without a local installation of the toolkit.
 - Use Vue single-file components with `<script setup lang="ts">`, followed by
@@ -118,11 +119,11 @@ This example is rendered directly from the same template as the generator:
   Vite config is created. Dynamic config objects, array-form aliases, CommonJS
   Vite configs, and conflicting abstracts aliases require manual setup and stop
   installation before changes. Dynamic Nuxt config expressions require the manual setup below.
-- If no compiler is declared, `ms-front-kit add styles` runs
+- If no compiler is declared, `ms-front-kit add styles` and `add component` run
   `npm install --save-dev sass`. `--no-install` runs no package manager and adds
   `sass` to package.json `devDependencies` instead; run a plain install with the
-  project's package manager before running the app. Without `--no-install`, the
-  command refuses in a project that does not use npm.
+  project's package manager before running the app. Without `--no-install`, these
+  commands refuse in a project that does not use npm.
 - `main.scss` emits global CSS and must be included once. `abstracts/_index.scss`
   exposes variables, `rem()`, and the `font-size`, `from`, and `type` mixins
   without emitting CSS.
