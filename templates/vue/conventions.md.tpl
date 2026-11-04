@@ -13,8 +13,9 @@ init recreates only the config, keeping the existing plugin and installed styles
 
 `ms-front-kit init --framework nuxt` creates configuration and
 `app/plugins/ms-front-kit.client.ts`, then runs `npm install gsap` to update the
-project's package.json and npm lockfile. A gsap entry already in `dependencies` or
-`devDependencies` is left as declared and nothing is installed. The paths shown are Nuxt 4 defaults;
+project's package.json and npm lockfile. A gsap entry already in `dependencies`,
+`devDependencies`, `peerDependencies`, or `optionalDependencies` is left as declared
+and nothing is installed. The paths shown are Nuxt 4 defaults;
 init parses literal `srcDir`, `dir.assets`, and `dir.plugins` settings to place
 files in the configured source, assets, and plugin directories. It does not
 execute config code. Dynamic, layered, or environment-specific layouts need

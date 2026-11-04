@@ -162,7 +162,8 @@ does not remove that rule; delete those lines manually, then commit the config.
 Nuxt initialization now creates both `ms-front-kit.json` and
 `app/plugins/ms-front-kit.client.ts`, then runs `npm install gsap`. This updates
 the consuming project's package.json and npm lockfile. A gsap entry already in
-`dependencies` or `devDependencies` is left as declared and nothing is installed.
+`dependencies`, `devDependencies`, `peerDependencies`, or `optionalDependencies`
+is left as declared and nothing is installed.
 The client plugin prints
 the studio credit, registers CustomEase, and defines the example `ms-ease` easing.
 It sets GSAP defaults to duration 0.8 seconds and ease "ms-ease"; individual
@@ -414,7 +415,8 @@ install`, `yarn`, `bun install`, or `npm install` fetches it:
 | `pinia` | `^4.1.0` | `add composable` with `useScrollBar`, `useScrollNative`, `useScrollVirtual`, or `useScroll` |
 | `@pinia/nuxt` | `^1.0.3` | The same composables as `pinia`, on Nuxt |
 
-An entry already in `dependencies` or `devDependencies` is never changed.
+An entry already in `dependencies`, `devDependencies`, `peerDependencies`, or
+`optionalDependencies` is never changed or duplicated.
 `dependencies` is written in the order npm uses, and the file keeps its
 indentation and trailing newline. The command refuses to edit a package.json that
 is invalid or linked, or that changed while it ran. Without a package.json, none

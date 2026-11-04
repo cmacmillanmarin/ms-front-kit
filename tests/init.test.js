@@ -40,7 +40,9 @@ test('Nuxt init creates the plugin and requests GSAP installation', async t => {
 for (const [label, source] of [
   ['a pinned version', '{"dependencies":{"gsap":"3.12.0"}}'],
   ['an empty range', '{"dependencies":{"gsap":""}}'],
-  ['a devDependencies entry', '{"devDependencies":{"gsap":"3.12.0"}}']
+  ['a devDependencies entry', '{"devDependencies":{"gsap":"3.12.0"}}'],
+  ['a peerDependencies entry', '{"peerDependencies":{"gsap":"3.12.0"}}'],
+  ['an optionalDependencies entry', '{"optionalDependencies":{"gsap":"3.12.0"}}']
 ]) {
   test(`Nuxt init does not install or rewrite gsap declared with ${label}`, async t => {
     const root = await project(t);
